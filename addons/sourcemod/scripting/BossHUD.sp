@@ -13,13 +13,16 @@
 
 #pragma newdecls required
 
+#define MAX_TEXT_LENGTH	64
+
 ConVar g_cVHudPosition, g_cVHudColor, g_cVHudSymbols;
 ConVar g_cVDisplayType;
 ConVar g_cVTopHitsPos, g_cVTopHitsColor, g_cVPlayersInTable;
 ConVar g_cVStatsReward, g_cVBossHitMoney;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
-ConVar g_cVHudRefreshRate, g_cVHudTimeout;
+ConVar g_cVHudTimeout;
 ConVar g_cVIgnoreFakeClients;
+ConVar g_cVHudHealthPercentageSquares;
 
 Handle g_hShowDmg = INVALID_HANDLE, g_hShowHealth = INVALID_HANDLE;
 Handle g_hHudSync = INVALID_HANDLE, g_hHudTopHitsSync = INVALID_HANDLE;
@@ -45,7 +48,7 @@ char g_sHUDTextSave[256];
 bool g_bLastBossHudPrinted = true;
 bool g_bLastHudPrinted = true;
 
-float g_fRefreshTime = 0.1, g_fTimeout = 0.5;
+float g_fTimeout = 0.5;
 
 int g_iMinHealthDetect = 1000;
 int g_iMaxHealthDetect = 100000;
@@ -98,10 +101,10 @@ public void OnPluginStart()
 	g_cVHudPosition = CreateConVar("sm_bhud_position", "-1.0 0.09", "The X and Y position for the hud.");
 	g_cVHudColor = CreateConVar("sm_bhud_color", "255 0 0", "RGB color value for the hud.");
 	g_cVHudSymbols = CreateConVar("sm_bhud_symbols", "0", "Determines whether >> and << are wrapped around the text.", _, true, 0.0, true, 1.0);
+	g_cVHudHealthPercentageSquares = CreateConVar("sm_bhud_health_percentage_squares", "0", "Determines how much squares are displayed base on health percentage.", _, true, 0.0, true, 100.0);
 	g_cVDisplayType = CreateConVar("sm_bhud_displaytype", "2", "Display type of HUD. (0 = center, 1 = game, 2 = hint)", _, true, 0.0, true, 2.0);
 	g_cVHudMinHealth = CreateConVar("sm_bhud_health_min", "1000", "Determines what minimum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
 	g_cVHudMaxHealth = CreateConVar("sm_bhud_health_max", "100000", "Determines what maximum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
-	g_cVHudRefreshRate = CreateConVar("sm_bhud_process_rate", "0.1", "Determines the process rate of entities displayed (Higher => more per frame).", _, true, 0.0, true, 1.0);
 	g_cVHudTimeout = CreateConVar("sm_bhud_timeout", "0.5", "Determines when the entity health is supposed to fade away when it doesnt change.", _, true, 0.0, true, 10.0);
 
 	g_cVTopHitsPos = CreateConVar("sm_bhud_tophits_position", "0.02 0.3", "The X and Y position for the hud.");
@@ -111,13 +114,13 @@ public void OnPluginStart()
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
 
-	g_cVHudRefreshRate.AddChangeHook(OnConVarChange);
 	g_cVHudMinHealth.AddChangeHook(OnConVarChange);
 	g_cVHudMaxHealth.AddChangeHook(OnConVarChange);
 	g_cVHudPosition.AddChangeHook(OnConVarChange);
 	g_cVHudColor.AddChangeHook(OnConVarChange);
 	g_cVHudSymbols.AddChangeHook(OnConVarChange);
 	g_cVDisplayType.AddChangeHook(OnConVarChange);
+	g_cVHudTimeout.AddChangeHook(OnConVarChange);
 	g_cVTopHitsPos.AddChangeHook(OnConVarChange);
 	g_cVTopHitsColor.AddChangeHook(OnConVarChange);
 
@@ -129,7 +132,7 @@ public void OnPluginStart()
 	// Late load
 	if (g_bLate)
 	{
-		for (int i = 1; i <= MAXPLAYERS; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if(IsClientConnected(i))
 			{
@@ -144,7 +147,7 @@ public void OnPluginEnd()
 	// Late unload
 	if (g_bLate)
 	{
-		for (int i = 1; i <= MAXPLAYERS; i++)
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if(IsClientConnected(i))
 			{
@@ -415,13 +418,14 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 
 	CConfig _Config = _Boss.dConfig;
 	float fLastChange = _Boss.fLastChange;
+	int iBaseHealth = _Boss.iBaseHealth;
 	int iHealth = _Boss.iHealth;
 	float fTimeout = _Config.fTimeout;
 
 	float fGameTime = GetGameTime();
 	if (fTimeout < 0.0 || fGameTime - fLastChange < fTimeout)
 	{
-		char sFormat[64];
+		char sFormat[MAX_TEXT_LENGTH];
 		if(g_sHUDText[0])
 		{
 			sFormat[0] = '\n';
@@ -434,7 +438,16 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 		sFormat[FormatLen++] = ':';
 		sFormat[FormatLen++] = ' ';
 
-		FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
+		if (g_cVHudHealthPercentageSquares.IntValue > 1)
+		{
+			char sPercentText[MAX_TEXT_LENGTH];
+			int iHPPercentage = RoundToFloor((float(iHealth)/float(iBaseHealth))*100.0);
+			CreateHPIconPercent(iHPPercentage, g_cVHudHealthPercentageSquares.IntValue, sPercentText, MAX_TEXT_LENGTH);
+			FormatLen += StrCat(sFormat, sizeof(sFormat), sPercentText);
+		}
+		else
+			FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
+
 		sFormat[FormatLen] = 0;
 
 		StrCat(g_sHUDText, sizeof(g_sHUDText), sFormat);
@@ -533,6 +546,26 @@ public void LagReducer_OnClientGameFrame(int iClient)
 // ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ## 
 // ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######
 
+public void CreateHPIconPercent(int hpPercent, int squareCount, char[] sText, int iSize)
+{
+	if (squareCount <= 1)
+		return;
+
+	int i = 0;
+	int howMuchHealthPerSquare = 100 / squareCount;
+	while (i < squareCount)
+	{
+		if (hpPercent > 0)
+		{
+			StrCat(sText, iSize, "⬛");
+			hpPercent = hpPercent - howMuchHealthPerSquare;
+		}
+		else
+			StrCat(sText, iSize, "⬜");
+		i++;
+	}
+}
+
 public void ColorStringToArray(const char[] sColorString, int aColor[3])
 {
 	char asColors[4][4];
@@ -567,13 +600,13 @@ public void GetConVars()
 	g_cVTopHitsColor.GetString(ColorValue, sizeof(ColorValue));
 	ColorStringToArray(ColorValue, g_iTopHitsColor);
 
+	g_fTimeout = g_cVHudTimeout.FloatValue;
+
 	g_bHudSymbols = g_cVHudSymbols.BoolValue;
 	g_iDisplayType = view_as<DisplayType>(g_cVDisplayType.IntValue);
 
 	g_iMinHealthDetect = g_cVHudMinHealth.IntValue;
 	g_iMaxHealthDetect = g_cVHudMaxHealth.IntValue;
-
-	g_fRefreshTime = g_cVHudRefreshRate.FloatValue;
 }
 
 public void ReadClientCookies(int client)
@@ -840,7 +873,7 @@ Action Timer_SendHudMsgAll(Handle timer, any data)
 }
 
 void SendHudMsgAll(
-	const char[] szMessage,
+	char[] szMessage,
 	DisplayType type = DISPLAY_CENTER,
 	Handle hHudSync = INVALID_HANDLE,
 	int iColors[3] = g_iHudColor,
@@ -903,7 +936,7 @@ void SendHudMsgAll(
 
 void SendHudMsg(
 	int client,
-	const char[] szMessage,
+	char[] szMessage,
 	DisplayType type = DISPLAY_CENTER,
 	Handle hHudSync = INVALID_HANDLE,
 	int iColors[3] = g_iHudColor,
@@ -926,7 +959,19 @@ void SendHudMsg(
 	}
 	else if (type == DISPLAY_HINT && !IsVoteInProgress())
 	{
-		PrintHintText(client, "%s", szMessage);
+		if (g_bIsCSGO)
+		{
+			int rgb;
+			rgb |= ((g_iHudColor[0] & 0xFF) << 16);
+			rgb |= ((g_iHudColor[1] & 0xFF) << 8 );
+			rgb |= ((g_iHudColor[2] & 0xFF) << 0 );
+			ReplaceString(szMessage, 256, "\\n", "<br/>");
+			PrintHintTextRGB(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
+		}
+		else
+		{
+			PrintHintText(client, "%s", szMessage);
+		}
 	}
 	else
 	{
@@ -936,11 +981,38 @@ void SendHudMsg(
 			rgb |= ((g_iHudColor[0] & 0xFF) << 16);
 			rgb |= ((g_iHudColor[1] & 0xFF) << 8 );
 			rgb |= ((g_iHudColor[2] & 0xFF) << 0 );
-//			ReplaceString(szMessage, sizeof(szMessage), "<", "&lt;");
+			ReplaceString(szMessage, 256, "\\n", "<br/>");
 			PrintCenterText(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
 		}
 		else
 			PrintCenterText(client, "%s", szMessage);
+	}
+}
+
+stock void PrintHintTextRGB(int client, const char[] format, any:...)
+{
+	char buff[2048];
+	VFormat(buff, sizeof(buff), format, 3);
+	Format(buff, sizeof(buff), "</font>%s ", buff);
+
+	for(int i = strlen(buff); i < sizeof(buff); i++)
+	{
+		buff[i] = ' ';
+	}
+
+	Handle hMessage = StartMessageOne("TextMsg", client, USERMSG_RELIABLE);
+	
+	if(hMessage != INVALID_HANDLE)
+	{
+		PbSetInt(hMessage, "msg_dst", 4);
+		PbAddString(hMessage, "params", "#SFUI_ContractKillStart");
+		PbAddString(hMessage, "params", buff);
+		PbAddString(hMessage, "params", NULL_STRING);
+		PbAddString(hMessage, "params", NULL_STRING);
+		PbAddString(hMessage, "params", NULL_STRING);
+		PbAddString(hMessage, "params", NULL_STRING);
+		
+		EndMessage();
 	}
 }
 
@@ -1016,17 +1088,6 @@ public void BuildMessage(CBoss boss, int[] TopHits, int tophitslen, int[] iHits,
 	boss.dConfig.GetName(szName, sizeof(szName));
 	Format(szMessage, len, "BOSS HITS [%s]\n", szName);
 
-	int msglen = strlen(szMessage) + 3;
-	char[] Symbols = new char[msglen];
-
-	for (int i = 0; i < msglen - 1; i++)
-	{
-		Symbols[i] = '*';
-	}	
-	Symbols[msglen - 1] = '\n';
-
-	StrCat(szMessage, len, Symbols);
-
 	for (int i = 0; i < tophitslen; i++)
 	{
 		int client = TopHits[i];
@@ -1039,9 +1100,6 @@ public void BuildMessage(CBoss boss, int[] TopHits, int tophitslen, int[] iHits,
 		Format(tmp, sizeof(tmp), "%i. %s: %i hits\n", i + 1, clientName, iHits[client]);
 		StrCat(szMessage, len, tmp);
 	}
-
-	Symbols[msglen - 1] = 0;
-	StrCat(szMessage, len, Symbols);
 }
 
 public int GetClientMoney(int client)
