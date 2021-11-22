@@ -8,6 +8,7 @@
 #include <loghelper>
 #include <BossHUD>
 #include <LagReducer>
+#include <multicolors>
 
 #define PLUGIN_VERSION "3.6"
 
@@ -395,7 +396,7 @@ public void BossHP_OnBossDead(CBoss boss)
 	BuildMessage(boss, TopHits, tophitlen, iHits, szMessage, len);
 
 	SendHudMsgAll(szMessage, DISPLAY_GAME, g_hHudTopHitsSync, g_iTopHitsColor, g_fTopHitsPos, 4.0, 255, true);
-	PrintToChatAll(szMessage);
+	CPrintToChatAll("{yellow}%s", szMessage);
 
 	if (g_cVStatsReward.BoolValue)
 	{
