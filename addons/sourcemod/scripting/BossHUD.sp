@@ -966,7 +966,7 @@ void SendHudMsg(
 			rgb |= ((g_iHudColor[0] & 0xFF) << 16);
 			rgb |= ((g_iHudColor[1] & 0xFF) << 8 );
 			rgb |= ((g_iHudColor[2] & 0xFF) << 0 );
-			ReplaceString(szMessage, 256, "\\n", "<br/>");
+			ReplaceString(szMessage, 256, "\n", "<br/>");
 			PrintHintTextRGB(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
 		}
 		else
@@ -982,7 +982,7 @@ void SendHudMsg(
 			rgb |= ((g_iHudColor[0] & 0xFF) << 16);
 			rgb |= ((g_iHudColor[1] & 0xFF) << 8 );
 			rgb |= ((g_iHudColor[2] & 0xFF) << 0 );
-			ReplaceString(szMessage, 256, "\\n", "<br/>");
+			ReplaceString(szMessage, 256, "\n", "<br/>");
 			PrintCenterText(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
 		}
 		else
