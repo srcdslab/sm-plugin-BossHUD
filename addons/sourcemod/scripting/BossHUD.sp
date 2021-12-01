@@ -990,7 +990,7 @@ void SendHudMsg(
 	}
 }
 
-stock void PrintHintTextRGB(int client, const char[] format, any:...)
+stock void PrintHintTextRGB(int client, const char[] format, any ...)
 {
 	char buff[2048];
 	VFormat(buff, sizeof(buff), format, 3);
