@@ -35,7 +35,7 @@ bool g_bShowDmg[MAXPLAYERS + 1] =  { true, ... };
 bool g_bShowHealth[MAXPLAYERS + 1] =  { true, ... };
 bool g_bHudSymbols;
 
-int g_iEntityId[MAXPLAYERS+1] = -1;
+int g_iEntityId[MAXPLAYERS+1] = { -1, ... };
 int g_iHudColor[3], g_iTopHitsColor[3];
 
 float g_fHudPos[2], g_fTopHitsPos[2];
@@ -1255,7 +1255,7 @@ int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
 				{
 					if (max != _Entity.iMaxHealth)
 					{
-						AcceptEntityInput(entity, "Add", client, client);
+						AcceptEntityInput(entity, sValue, client, client);
 						foundAndApplied = true;
 					}
 				}
@@ -1263,7 +1263,7 @@ int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
 		}
 
 		if (!foundAndApplied)
-			AcceptEntityInput(entity, "Subtract", client, client);
+			AcceptEntityInput(entity, sValue, client, client);
 	}
 	else
 	{
