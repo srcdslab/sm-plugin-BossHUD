@@ -465,18 +465,36 @@ public void BossHP_OnAllBossProcessEnd()
 	*/
 }
 
+public void OnEntityCreated(int entity, const char[] classname)
+{
+	if (CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "SDKHook_OnEntitySpawned") == FeatureStatus_Available)
+		return;
+
+	SDKHook(entity, SDKHook_SpawnPost, OnEntitySpawnedPost);
+}
+
+public void OnEntitySpawnedPost(int entity)
+{
+	if (!IsValidEntity(entity))
+		return;
+
+	// 1 frame later required to get some properties
+	RequestFrame(ProcessEntitySpawned, entity);
+}
+
 public void OnEntitySpawned(int entity, const char[] classname)
 {
-	DataPack pack = new DataPack();
-	pack.WriteCell(entity);
-	pack.WriteString(classname);
-
-	RequestFrame(ProcessEntitySpawned, pack);
+	RequestFrame(ProcessEntitySpawned, entity);
 }
 
 public void OnEntityDestroyed(int entity)
 {
 	RequestFrame(ProcessEntityDestroyed, entity);
+
+	if (CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "SDKHook_OnEntitySpawned") == FeatureStatus_Available)
+		return;
+
+	SDKUnhook(entity, SDKHook_SpawnPost, OnEntitySpawnedPost);
 }
 
 public void LagReducer_OnStartGameFrame()
@@ -651,50 +669,43 @@ bool CEntityRemove(int entity)
 	return false;
 }
 
-void ProcessEntitySpawned(any data)
+void ProcessEntitySpawned(int entity)
 {
-	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-
-	int entity = pack.ReadCell();
+	if (!IsValidEntity(entity))
+		return;
 
 	char classname[64];
-	pack.ReadString(classname, sizeof(classname));
+	GetEntityClassname(entity, classname, sizeof(classname));
 
-	CloseHandle(pack);
+	int iHealth = GetEntityHealth(entity);
+	if (iHealth <= g_iMinHealthDetect || iHealth >= g_iMaxHealthDetect)
+		return;
 
-	if(IsValidEntity(entity))
+	char szName[64];
+	GetEntityName(entity, szName);
+
+	if (strlen(szName) == 0)
+		Format(szName, sizeof(szName), "Health");
+
+	if(StrEqual(classname, "math_counter"))
 	{
-		int iHealth = GetEntityHealth(entity);
-		if (iHealth <= g_iMinHealthDetect || iHealth >= g_iMaxHealthDetect)
-			return;
+		CEntity _Entity = new CEntity();
+		_Entity.SetName(szName);
+		_Entity.iIndex = entity;
+		_Entity.iMaxHealth = RoundFloat(GetEntPropFloat(entity, Prop_Data, "m_flMax"));
+		_Entity.iHealth = iHealth;
 
-		char szName[64];
-		GetEntityName(entity, szName);
+		g_aEntity.Push(_Entity);
+	}
+	else if (StrEqual(classname, "func_physbox") || StrEqual(classname, "func_physbox_multiplayer")
+		|| StrEqual(classname, "func_breakable"))
+	{
+		CEntity _Entity = new CEntity();
+		_Entity.SetName(szName);
+		_Entity.iIndex = entity;
+		_Entity.iHealth = iHealth;
 
-		if (strlen(szName) == 0)
-			Format(szName, sizeof(szName), "Health");
-
-		if(StrEqual(classname, "math_counter"))
-		{
-			CEntity _Entity = new CEntity();
-			_Entity.SetName(szName);
-			_Entity.iIndex = entity;
-			_Entity.iMaxHealth = RoundFloat(GetEntPropFloat(entity, Prop_Data, "m_flMax"));
-			_Entity.iHealth = iHealth;
-
-			g_aEntity.Push(_Entity);
-		}
-		else if (StrEqual(classname, "func_physbox") || StrEqual(classname, "func_physbox_multiplayer")
-			|| StrEqual(classname, "func_breakable"))
-		{
-			CEntity _Entity = new CEntity();
-			_Entity.SetName(szName);
-			_Entity.iIndex = entity;
-			_Entity.iHealth = iHealth;
-
-			g_aEntity.Push(_Entity);
-		}
+		g_aEntity.Push(_Entity);
 	}
 }
 
