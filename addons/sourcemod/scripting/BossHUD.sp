@@ -10,8 +10,6 @@
 #include <LagReducer>
 #include <multicolors>
 
-#define PLUGIN_VERSION "3.6"
-
 #pragma newdecls required
 
 #define MAX_TEXT_LENGTH	64
@@ -60,7 +58,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = PLUGIN_VERSION,
+	version = "3.6.0",
 	url = "antiteal.com"
 };
 
@@ -73,8 +71,6 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
-	CreateConVar("sm_bhud_version", PLUGIN_VERSION, "BHud Version", FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
-
 	g_hShowDmg = RegClientCookie("bhud_showdamage", "Enable/Disable show damage", CookieAccess_Private);
 	g_hShowHealth = RegClientCookie("bhud_showhealth", "Enabled/Disable show health", CookieAccess_Private);
 
