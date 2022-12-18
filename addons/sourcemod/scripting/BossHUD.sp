@@ -958,7 +958,7 @@ void SendHudMsg(
 		if (hHudSync == INVALID_HANDLE)
 			hHudSync = g_hHudSync;
 
-		if (hHudSync != INVALID_HANDLE)
+		else if (hHudSync != INVALID_HANDLE)
 		{
 			SetHudTextParams(fPosition[0], fPosition[1], fDuration, iColors[0], iColors[1], iColors[2], iTransparency, 0, 0.0, 0.0, 0.0);
 			ClearSyncHud(client, hHudSync);
