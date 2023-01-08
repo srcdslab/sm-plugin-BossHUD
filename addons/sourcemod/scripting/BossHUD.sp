@@ -58,7 +58,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.6.0",
+	version = "3.6.1",
 	url = "antiteal.com"
 };
 
@@ -398,7 +398,7 @@ public void BossHP_OnBossDead(CBoss boss)
 	{
 		for (int i = 0; i < tophitlen; i++)
 		{
-			LogPlayerEvent(TopHits[i], "triggered", "top_boss_dmg");
+			LogPlayerEvent(TopHits[i][0], "triggered", i == 0 ? "top_boss_dmg" : (i == 1 ? "second_boss_dmg" : (i == 2 ? "third_boss_dmg" : "super_boss_dmg")));
 		}
 	}
 }
