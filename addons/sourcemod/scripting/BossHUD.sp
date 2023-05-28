@@ -58,7 +58,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.6.1",
+	version = "3.6.2",
 	url = "antiteal.com"
 };
 
@@ -435,19 +435,23 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 		sFormat[FormatLen++] = ':';
 		sFormat[FormatLen++] = ' ';
 
+		int iHPPercentage = RoundToFloor((float(iHealth)/float(iBaseHealth))*100.0);
 		if (g_cVHudHealthPercentageSquares.IntValue > 1)
 		{
 			char sPercentText[MAX_TEXT_LENGTH];
-			int iHPPercentage = RoundToFloor((float(iHealth)/float(iBaseHealth))*100.0);
 			CreateHPIconPercent(iHPPercentage, g_cVHudHealthPercentageSquares.IntValue, sPercentText, MAX_TEXT_LENGTH);
 			FormatLen += StrCat(sFormat, sizeof(sFormat), sPercentText);
 		}
 		else
 			FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
 
+		char sFormatFinal[96];
+		FormatEx(sFormatFinal, sizeof(sFormatFinal), "%s [%iPERCENTAGE]", sFormat, iHPPercentage);
+		ReplaceString(sFormatFinal,sizeof(sFormatFinal), "PERCENTAGE", "%%%");
+
 		sFormat[FormatLen] = 0;
 
-		StrCat(g_sHUDText, sizeof(g_sHUDText), sFormat);
+		StrCat(g_sHUDText, sizeof(g_sHUDText), sFormatFinal);
 
 		g_bLastBossHudPrinted = false;
 	}
