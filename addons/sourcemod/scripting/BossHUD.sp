@@ -453,7 +453,7 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 			FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
 
 		char sFormatTemp[256], sFormatFinal[256];
-		FormatEx(sFormatTemp, sizeof(sFormatTemp), "[%dPERCENTAGE", iHPPercentage);
+		FormatEx(sFormatTemp, sizeof(sFormatTemp), "[%dPERCENTAGE]", iHPPercentage);
 		FormatEx(sFormatFinal, sizeof(sFormatFinal), "%s %s", sFormat, sFormatTemp);
 
 		sFormat[FormatLen] = 0;
@@ -975,7 +975,7 @@ void SendHudMsg(
 			ClearSyncHud(client, hHudSync);
 			char szMessageFinale[512];
 			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
-			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "%]");
+			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "%");
 			ShowSyncHudText(client, hHudSync, "%s", szMessageFinale);
 		}
 	}
@@ -994,7 +994,7 @@ void SendHudMsg(
 		{
 			char szMessageFinale[512];
 			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
-			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%%]");
+			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%%");
 			PrintHintText(client, "%s", szMessageFinale);
 		}
 	}
@@ -1013,7 +1013,7 @@ void SendHudMsg(
 		{
 			char szMessageFinale[512];
 			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
-			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%]");
+			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%");
 			PrintCenterText(client, "%s", szMessageFinale);
 		}
 	}
