@@ -435,7 +435,14 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 		sFormat[FormatLen++] = ':';
 		sFormat[FormatLen++] = ' ';
 
-		int iHPPercentage = RoundToFloor((float(iHealth)/float(iBaseHealth))*100.0);
+		if (iHealth > iBaseHealth)
+			iBaseHealth = iHealth;
+
+		int iHPPercentage = RoundToCeil((float(iHealth) / float(iBaseHealth)) * 100.0);
+
+		if (iHPPercentage > 100) iHPPercentage = 100;
+		if (iHPPercentage <= 0) iHPPercentage = 0;
+
 		if (g_cVHudHealthPercentageSquares.IntValue > 1)
 		{
 			char sPercentText[MAX_TEXT_LENGTH];
@@ -445,12 +452,12 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 		else
 			FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
 
-		char sFormatFinal[96];
-		FormatEx(sFormatFinal, sizeof(sFormatFinal), "%s [%iPERCENTAGE]", sFormat, iHPPercentage);
-		ReplaceString(sFormatFinal,sizeof(sFormatFinal), "PERCENTAGE", "%%%");
+		char sFormatTemp[256], sFormatFinal[256];
+		FormatEx(sFormatTemp, sizeof(sFormatTemp), "[%dPERCENTAGE]", iHPPercentage);
+		FormatEx(sFormatFinal, sizeof(sFormatFinal), "%s %s", sFormat, sFormatTemp);
 
 		sFormat[FormatLen] = 0;
-
+		iHPPercentage = 0;
 		StrCat(g_sHUDText, sizeof(g_sHUDText), sFormatFinal);
 
 		g_bLastBossHudPrinted = false;
@@ -962,11 +969,14 @@ void SendHudMsg(
 		if (hHudSync == INVALID_HANDLE)
 			hHudSync = g_hHudSync;
 
-		if (hHudSync != INVALID_HANDLE)
+		else if (hHudSync != INVALID_HANDLE)
 		{
 			SetHudTextParams(fPosition[0], fPosition[1], fDuration, iColors[0], iColors[1], iColors[2], iTransparency, 0, 0.0, 0.0, 0.0);
 			ClearSyncHud(client, hHudSync);
-			ShowSyncHudText(client, hHudSync, "%s", szMessage);
+			char szMessageFinale[512];
+			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
+			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "%");
+			ShowSyncHudText(client, hHudSync, "%s", szMessageFinale);
 		}
 	}
 	else if (type == DISPLAY_HINT && !IsVoteInProgress())
@@ -982,7 +992,10 @@ void SendHudMsg(
 		}
 		else
 		{
-			PrintHintText(client, "%s", szMessage);
+			char szMessageFinale[512];
+			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
+			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%%");
+			PrintHintText(client, "%s", szMessageFinale);
 		}
 	}
 	else
@@ -997,7 +1010,12 @@ void SendHudMsg(
 			PrintCenterText(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
 		}
 		else
-			PrintCenterText(client, "%s", szMessage);
+		{
+			char szMessageFinale[512];
+			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
+			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%");
+			PrintCenterText(client, "%s", szMessageFinale);
+		}
 	}
 }
 
