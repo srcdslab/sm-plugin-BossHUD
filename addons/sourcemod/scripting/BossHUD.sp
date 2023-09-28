@@ -767,30 +767,13 @@ void Cleanup(bool bPluginEnd = false)
 		delete g_smBossMap;
 	}
 
-	if (g_hHudSync != INVALID_HANDLE)
-	{
-		CloseHandle(g_hHudSync);
-		g_hHudSync = INVALID_HANDLE;
-	}
-	if (g_hHudTopHitsSync != INVALID_HANDLE)
-	{
-		CloseHandle(g_hHudTopHitsSync);
-		g_hHudTopHitsSync = INVALID_HANDLE;
-	}
+	delete g_hHudSync;
+	delete g_hHudTopHitsSync;
 
 	if (bPluginEnd)
 	{
-		if (g_hShowDmg != INVALID_HANDLE)
-		{
-			CloseHandle(g_hShowDmg);
-			g_hShowDmg = INVALID_HANDLE;
-		}
-		if (g_hShowHealth != INVALID_HANDLE)
-		{
-			CloseHandle(g_hShowHealth);
-			g_hShowHealth = INVALID_HANDLE;
-		}
-
+		delete g_hShowDmg;
+		delete g_hShowHealth;
 		delete g_cVHudPosition;
 		delete g_cVHudColor;
 		delete g_cVHudSymbols;
@@ -966,10 +949,10 @@ void SendHudMsg(
 {
 	if(type == DISPLAY_GAME)
 	{
-		if (hHudSync == INVALID_HANDLE)
+		if (hHudSync == INVALID_HANDLE && g_hHudSync != INVALID_HANDLE)
 			hHudSync = g_hHudSync;
 
-		else if (hHudSync != INVALID_HANDLE)
+		if (hHudSync != INVALID_HANDLE)
 		{
 			SetHudTextParams(fPosition[0], fPosition[1], fDuration, iColors[0], iColors[1], iColors[2], iTransparency, 0, 0.0, 0.0, 0.0);
 			ClearSyncHud(client, hHudSync);
