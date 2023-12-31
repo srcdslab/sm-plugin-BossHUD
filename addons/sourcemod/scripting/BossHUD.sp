@@ -58,7 +58,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.6.2",
+	version = "3.6.3",
 	url = "antiteal.com"
 };
 
@@ -365,7 +365,7 @@ public void BossHP_OnBossInitialized(CBoss boss)
 
 public void BossHP_OnBossDead(CBoss boss)
 {
-	if (boss.dConfig != INVALID_HANDLE && boss.dConfig.bIgnore)
+	if (boss.dConfig != INVALID_HANDLE && boss.dConfig.bIgnore || !boss.dConfig.bShowBeaten)
 		return;
 
 	char szName[300];
