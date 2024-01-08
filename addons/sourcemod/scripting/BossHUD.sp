@@ -187,13 +187,13 @@ public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
 			{
 				char szMessage[128] = "Dead";
 				if(hp > 0) IntToString(hp, szMessage, sizeof(szMessage));
-				Format(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
+				FormatEx(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
 				SendHudMsg(attacker, szMessage, g_iDisplayType);
 			}
 			if(g_bShowDmg[attacker])
 			{
 				char szMessage[128];
-				Format(szMessage, sizeof(szMessage), "%i HP", dmg);
+				FormatEx(szMessage, sizeof(szMessage), "%i HP", dmg);
 				SendHudMsg(attacker, szMessage);
 			}
 		}
@@ -288,11 +288,11 @@ public int MenuHandler_BHud(Menu menu, MenuAction action, int param1, int param2
 			{
 				case 0:
 				{
-					Format(buffer, sizeof(buffer), "Show damage: %s", (g_bShowDmg[param1]) ? "Enabled":"Disabled");
+					FormatEx(buffer, sizeof(buffer), "Show damage: %s", (g_bShowDmg[param1]) ? "Enabled":"Disabled");
 				}
 				case 1:
 				{
-					Format(buffer, sizeof(buffer), "Show health: %s", (g_bShowHealth[param1]) ? "Enabled":"Disabled");
+					FormatEx(buffer, sizeof(buffer), "Show health: %s", (g_bShowHealth[param1]) ? "Enabled":"Disabled");
 				}
 			}
 			return RedrawMenuItem(buffer);
@@ -339,7 +339,20 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 
 		int iHits[MAXPLAYERS + 1];
 		g_smBossMap.GetArray(szBossName, iHits, MAXPLAYERS + 1);
-		iHits[activator]++;
+
+		if (boss.IsBreakable)
+		{
+			// Breakable entities damages aren't based on the number of hits
+			int iHealth = GetEntityHealth(caller);
+			int iDamageMade = boss.iLastHealth - iHealth;
+			if (iDamageMade > 0)
+				iHits[activator] += iDamageMade;
+		}
+		else
+		{
+			iHits[activator]++;
+		}
+
 		if(g_cVBossHitMoney.BoolValue)
 		{
 			int cash = GetClientMoney(activator);
@@ -389,7 +402,7 @@ public void BossHP_OnBossDead(CBoss boss)
 
 	int len = 300 + 128 * tophitlen;
 	char[] szMessage = new char[len];
-	BuildMessage(boss, TopHits, tophitlen, iHits, szMessage, len);
+	BuildMessage(boss, boss.IsBreakable, TopHits, tophitlen, iHits, szMessage, len);
 
 	SendHudMsgAll(szMessage, DISPLAY_GAME, g_hHudTopHitsSync, g_iTopHitsColor, g_fTopHitsPos, 4.0, 255, true);
 	CPrintToChatAll("{yellow}%s", szMessage);
@@ -527,9 +540,9 @@ public void LagReducer_OnStartGameFrame()
 				_Entity.GetName(szName, sizeof(szName));
 
 				if (g_bHudSymbols)
-					Format(szString, sizeof(szString), ">> %s: %i <<", szName, _Entity.iHealth);
+					FormatEx(szString, sizeof(szString), ">> %s: %i <<", szName, _Entity.iHealth);
 				else
-					Format(szString, sizeof(szString), "%s: %i", szName, _Entity.iHealth);
+					FormatEx(szString, sizeof(szString), "%s: %i", szName, _Entity.iHealth);
 
 				if (g_sHUDText[0])
 					StrCat(g_sHUDText, sizeof(g_sHUDText), "\n");
@@ -650,10 +663,10 @@ public void SetClientCookies(int client)
 {
 	char sValue[8];
 
-	Format(sValue, sizeof(sValue), "%i", g_bShowDmg[client]);
+	FormatEx(sValue, sizeof(sValue), "%i", g_bShowDmg[client]);
 	SetClientCookie(client, g_hShowDmg, sValue);
 
-	Format(sValue, sizeof(sValue), "%i", g_bShowHealth[client]);
+	FormatEx(sValue, sizeof(sValue), "%i", g_bShowHealth[client]);
 	SetClientCookie(client, g_hShowHealth, sValue);
 }
 
@@ -692,9 +705,9 @@ void ProcessEntitySpawned(int entity)
 	GetEntityName(entity, szName);
 
 	if (strlen(szName) == 0)
-		Format(szName, sizeof(szName), "Health");
+		FormatEx(szName, sizeof(szName), "Health");
 
-	if(StrEqual(classname, "math_counter"))
+	if (strcmp(classname, "math_counter", false) == 0)
 	{
 		CEntity _Entity = new CEntity();
 		_Entity.SetName(szName);
@@ -704,8 +717,7 @@ void ProcessEntitySpawned(int entity)
 
 		g_aEntity.Push(_Entity);
 	}
-	else if (StrEqual(classname, "func_physbox") || StrEqual(classname, "func_physbox_multiplayer")
-		|| StrEqual(classname, "func_breakable"))
+	else if (strcmp(classname, "func_physbox", false) == 0 || strcmp(classname, "func_physbox_multiplayer", false) == 0 || strcmp(classname, "func_breakable", false) == 0)
 	{
 		CEntity _Entity = new CEntity();
 		_Entity.SetName(szName);
@@ -726,8 +738,8 @@ void ProcessEntityDestroyed(int entity)
 		char classname[64];
 		GetEntityClassname(entity, classname, sizeof(classname));
 
-		if(StrEqual(classname, "math_counter") || StrEqual(classname, "func_physbox") 
-			|| StrEqual(classname, "func_physbox_multiplayer") || StrEqual(classname, "func_breakable"))
+		if (strcmp(classname, "math_counter", false) == 0 || strcmp(classname, "func_physbox", false) == 0
+			|| strcmp(classname, "func_physbox_multiplayer", false) == 0 || strcmp(classname, "func_breakable", false) == 0)
 		{
 			CEntityRemove(entity);
 		}
@@ -801,7 +813,7 @@ int GetEntityHealth(int entity, CEntity _Entity = null)
 	char szType[64];
 	GetEntityClassname(entity, szType, sizeof(szType));
 
-	if (StrEqual(szType, "math_counter", false))
+	if (strcmp(szType, "math_counter", false) == 0)
 	{
 		static int offset = -1;
 		if (offset == -1)
@@ -1006,7 +1018,7 @@ stock void PrintHintTextRGB(int client, const char[] format, any ...)
 {
 	char buff[2048];
 	VFormat(buff, sizeof(buff), format, 3);
-	Format(buff, sizeof(buff), "</font>%s ", buff);
+	FormatEx(buff, sizeof(buff), "</font>%s ", buff);
 
 	for(int i = strlen(buff); i < sizeof(buff); i++)
 	{
@@ -1036,17 +1048,17 @@ public void BuildName(CBoss boss, char[] szName, int maxlen)
 	if(config.IsBreakable)
 	{
 		CBossBreakable _boss = view_as<CBossBreakable>(boss);
-		Format(szName, maxlen, "%s%i", szName, _boss.iBreakableEnt);
+		FormatEx(szName, maxlen, "%s%i", szName, _boss.iBreakableEnt);
 	}
 	else if(config.IsCounter)
 	{
 		CBossCounter _boss = view_as<CBossCounter>(boss);
-		Format(szName, maxlen, "%s%i", szName, _boss.iCounterEnt);
+		FormatEx(szName, maxlen, "%s%i", szName, _boss.iCounterEnt);
 	}
 	else if(config.IsHPBar)
 	{
 		CBossHPBar _boss = view_as<CBossHPBar>(boss);
-		Format(szName, maxlen, "%s%i", szName, _boss.iBackupEnt);
+		FormatEx(szName, maxlen, "%s%i", szName, _boss.iBackupEnt);
 	}
 }
 
@@ -1094,12 +1106,12 @@ public int GetHitArraySize(int[] arr, int maxlen)
 	return res;
 }
 
-public void BuildMessage(CBoss boss, int[] TopHits, int tophitslen, int[] iHits, char[] szMessage, int len)
+public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophitslen, int[] iHits, char[] szMessage, int len)
 {
 	char szName[256];
-	
+
 	boss.dConfig.GetName(szName, sizeof(szName));
-	Format(szMessage, len, "BOSS HITS [%s]\n", szName);
+	FormatEx(szMessage, len, "BOSS %s [%s]\n", IsBreakable ? "DAMAGES" : "HITS", szName);
 
 	for (int i = 0; i < tophitslen; i++)
 	{
@@ -1108,9 +1120,9 @@ public void BuildMessage(CBoss boss, int[] TopHits, int tophitslen, int[] iHits,
 
 		char clientName[64];
 		if (!IsValidClient(client) || !GetClientName(client, clientName, sizeof(clientName)))
-			Format(clientName, sizeof(clientName), "Disconnected (#%d)", client);
+			FormatEx(clientName, sizeof(clientName), "Disconnected (#%d)", client);
 
-		Format(tmp, sizeof(tmp), "%i. %s: %i hits\n", i + 1, clientName, iHits[client]);
+		FormatEx(tmp, sizeof(tmp), "%i. %s: %i %s\n", i + 1, clientName, iHits[client], IsBreakable ? "damage" : "hits");
 		StrCat(szMessage, len, tmp);
 	}
 }
@@ -1251,7 +1263,7 @@ int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
 
 	SetVariantInt(value);
 
-	if(StrEqual(szType, "math_counter", false))
+	if (strcmp(szType, "math_counter") == 0, false)
 	{
 		char sValue[64] = "Add";
 		if (bAdd)
