@@ -187,13 +187,13 @@ public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
 			{
 				char szMessage[128] = "Dead";
 				if(hp > 0) IntToString(hp, szMessage, sizeof(szMessage));
-				FormatEx(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
+				Format(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
 				SendHudMsg(attacker, szMessage, g_iDisplayType);
 			}
 			if(g_bShowDmg[attacker])
 			{
 				char szMessage[128];
-				FormatEx(szMessage, sizeof(szMessage), "%i HP", dmg);
+				Format(szMessage, sizeof(szMessage), "%i HP", dmg);
 				SendHudMsg(attacker, szMessage);
 			}
 		}
@@ -1263,7 +1263,7 @@ int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
 
 	SetVariantInt(value);
 
-	if (strcmp(szType, "math_counter") == 0, false)
+	if (strcmp(szType, "math_counter", false) == 0)
 	{
 		char sValue[64] = "Add";
 		if (bAdd)
