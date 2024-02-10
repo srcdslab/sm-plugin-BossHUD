@@ -1111,7 +1111,7 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 	char szName[256];
 
 	boss.dConfig.GetName(szName, sizeof(szName));
-	FormatEx(szMessage, len, "BOSS %s [%s]\n", IsBreakable ? "DAMAGES" : "HITS", szName);
+	FormatEx(szMessage, len, "TOP BOSS %s [%s]\n", IsBreakable ? "DAMAGE" : "HITS", szName);
 
 	for (int i = 0; i < tophitslen; i++)
 	{
