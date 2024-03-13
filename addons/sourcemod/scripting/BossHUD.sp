@@ -10,6 +10,10 @@
 #include <LagReducer>
 #include <multicolors>
 
+#undef REQUIRE_PLUGIN
+#tryinclude <DynamicChannels>
+#define REQUIRE_PLUGIN
+
 #pragma newdecls required
 
 #define MAX_TEXT_LENGTH	64
@@ -19,7 +23,7 @@ ConVar g_cVDisplayType;
 ConVar g_cVTopHitsPos, g_cVTopHitsColor, g_cVPlayersInTable;
 ConVar g_cVStatsReward, g_cVBossHitMoney;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
-ConVar g_cVHudTimeout;
+ConVar g_cVHudTimeout, g_cvHUDChannel;
 ConVar g_cVIgnoreFakeClients;
 ConVar g_cVHudHealthPercentageSquares;
 
@@ -40,6 +44,7 @@ float g_fHudPos[2], g_fTopHitsPos[2];
 
 bool g_bLate = false;
 bool g_bIsCSGO = false;
+bool g_bDynamicChannels = false;
 
 char g_sHUDText[256];
 char g_sHUDTextSave[256];
@@ -58,7 +63,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.6.5",
+	version = "3.6.6",
 	url = "antiteal.com"
 };
 
@@ -103,6 +108,7 @@ public void OnPluginStart()
 	g_cVHudMinHealth = CreateConVar("sm_bhud_health_min", "1000", "Determines what minimum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
 	g_cVHudMaxHealth = CreateConVar("sm_bhud_health_max", "100000", "Determines what maximum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
 	g_cVHudTimeout = CreateConVar("sm_bhud_timeout", "0.5", "Determines when the entity health is supposed to fade away when it doesnt change.", _, true, 0.0, true, 10.0);
+	g_cvHUDChannel = CreateConVar("sm_bhud_hud_channel", "1", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 6.0);
 
 	g_cVTopHitsPos = CreateConVar("sm_bhud_tophits_position", "0.02 0.3", "The X and Y position for the hud.");
 	g_cVTopHitsColor = CreateConVar("sm_bhud_tophits_color", "255 255 0", "RGB color value for the hud.");
@@ -137,6 +143,23 @@ public void OnPluginStart()
 			}
 		}
 	}
+}
+
+public void OnAllPluginsLoaded()
+{
+	g_bDynamicChannels = LibraryExists("DynamicChannels");
+}
+
+public void OnLibraryAdded(const char[] name)
+{
+	if (strcmp(name, "DynamicChannels", false) == 0)
+		g_bDynamicChannels = true;
+}
+
+public void OnLibraryRemoved(const char[] name)
+{
+	if (strcmp(name, "DynamicChannels", false) == 0)
+		g_bDynamicChannels = false;
 }
 
 public void OnPluginEnd()
@@ -967,11 +990,31 @@ void SendHudMsg(
 		if (hHudSync != INVALID_HANDLE)
 		{
 			SetHudTextParams(fPosition[0], fPosition[1], fDuration, iColors[0], iColors[1], iColors[2], iTransparency, 0, 0.0, 0.0, 0.0);
-			ClearSyncHud(client, hHudSync);
 			char szMessageFinale[512];
 			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
 			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "%");
-			ShowSyncHudText(client, hHudSync, "%s", szMessageFinale);
+
+			bool bDynamicAvailable = false;
+			int iHUDChannel = -1;
+
+			int iChannel = g_cvHUDChannel.IntValue;
+			if (iChannel < 0 || iChannel > 6)
+				iChannel = 1;
+
+			bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
+
+		#if defined _DynamicChannels_included_
+			if (bDynamicAvailable)
+				iHUDChannel = GetDynamicChannel(iChannel);
+		#endif
+
+			if (bDynamicAvailable)
+				ShowHudText(client, iHUDChannel, "%s", szMessageFinale);
+			else
+			{
+				ClearSyncHud(client, hHudSync);
+				ShowSyncHudText(client, hHudSync, "%s", szMessageFinale);
+			}
 		}
 	}
 	else if (type == DISPLAY_HINT && !IsVoteInProgress())
