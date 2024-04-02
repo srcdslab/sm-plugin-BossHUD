@@ -20,7 +20,7 @@
 
 ConVar g_cVHudPosition, g_cVHudColor, g_cVHudSymbols;
 ConVar g_cVDisplayType;
-ConVar g_cVTopHitsPos, g_cVTopHitsColor, g_cVPlayersInTable;
+ConVar g_cVTopHitsPos, g_cVTopHitsColor, g_cVTopHitsTitle, g_cVPlayersInTable;
 ConVar g_cVStatsReward, g_cVBossHitMoney;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
 ConVar g_cVHudTimeout, g_cvHUDChannel;
@@ -63,7 +63,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.6.6",
+	version = "3.6.7",
 	url = "antiteal.com"
 };
 
@@ -76,6 +76,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	LoadTranslations("BossHUD.phrases");
+
 	g_hShowDmg = RegClientCookie("bhud_showdamage", "Enable/Disable show damage", CookieAccess_Private);
 	g_hShowHealth = RegClientCookie("bhud_showhealth", "Enabled/Disable show health", CookieAccess_Private);
 
@@ -112,6 +114,7 @@ public void OnPluginStart()
 
 	g_cVTopHitsPos = CreateConVar("sm_bhud_tophits_position", "0.02 0.3", "The X and Y position for the hud.");
 	g_cVTopHitsColor = CreateConVar("sm_bhud_tophits_color", "255 255 0", "RGB color value for the hud.");
+	g_cVTopHitsTitle = CreateConVar("sm_bhud_tophits_uppertitle", "1", "Enable/Disable the upper title of the top hits table.", _, true, 0.0, true, 1.0);
 	g_cVPlayersInTable = CreateConVar("sm_bhud_tophits_players", "3", "Amount players on the top hits table", _, true, 1.0, true, 10.0);
 	g_cVBossHitMoney = CreateConVar("sm_bhud_tophits_money", "1", "Enable/Disable payment of boss hits", _, true, 0.0, true, 1.0);
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
@@ -425,9 +428,14 @@ public void BossHP_OnBossDead(CBoss boss)
 
 	int len = 300 + 128 * tophitlen;
 	char[] szMessage = new char[len];
-	BuildMessage(boss, boss.IsBreakable, TopHits, tophitlen, iHits, szMessage, len);
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i))
+			continue;
 
-	SendHudMsgAll(szMessage, DISPLAY_GAME, g_hHudTopHitsSync, g_iTopHitsColor, g_fTopHitsPos, 4.0, 255, true);
+		BuildMessage(boss, boss.IsBreakable, TopHits, tophitlen, iHits, szMessage, len, i);
+		SendHudMsgAll(szMessage, DISPLAY_GAME, g_hHudTopHitsSync, g_iTopHitsColor, g_fTopHitsPos, 4.0, 255, true, false, i);
+	}
 	CPrintToChatAll("{yellow}%s", szMessage);
 
 	if (g_cVStatsReward.BoolValue)
@@ -900,10 +908,11 @@ Action Timer_SendHudMsgAll(Handle timer, any data)
 
 	float fDuration = pack.ReadFloat();
 	int iTransparency = pack.ReadCell();
+	int client = pack.ReadCell();
 
 	CloseHandle(pack);
 
-	SendHudMsgAll(szMessage, type, hHudSync, iColors, fPosition, fDuration, iTransparency);
+	SendHudMsgAll(szMessage, type, hHudSync, iColors, fPosition, fDuration, iTransparency, false, false, client);
 
 	KillTimer(timer);
 	return Plugin_Stop;
@@ -918,7 +927,8 @@ void SendHudMsgAll(
 	float fDuration = 3.0,
 	int iTransparency = 255,
 	bool bDelayFastPrint = false,
-	bool bFilterClients = false
+	bool bFilterClients = false,
+	int client
 )
 {
 	if (bDelayFastPrint)
@@ -947,6 +957,7 @@ void SendHudMsgAll(
 
 			pack.WriteFloat(fDuration);
 			pack.WriteCell(iTransparency);
+			pack.WriteCell(client);
 
 			float fWaitTime = float(lastTime + iLastDuration - currentTime);
 			CreateTimer(fWaitTime, Timer_SendHudMsgAll, pack);
@@ -960,15 +971,10 @@ void SendHudMsgAll(
 		lastTime = currentTime;
 	}
 
-	for (int i = 1; i <= MaxClients; i++)
-	{
-		if (IsValidClient(i))
-		{
-			if (bFilterClients && !g_bShowHealth[i])
-				continue;
-			SendHudMsg(i, szMessage, type, hHudSync, iColors, fPosition, fDuration, iTransparency);
-		}
-	}
+	if (!IsValidClient(client) || bFilterClients && !g_bShowHealth[client])
+		return;
+
+	SendHudMsg(client, szMessage, type, hHudSync, iColors, fPosition, fDuration, iTransparency);
 }
 
 void SendHudMsg(
@@ -1149,23 +1155,44 @@ public int GetHitArraySize(int[] arr, int maxlen)
 	return res;
 }
 
-public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophitslen, int[] iHits, char[] szMessage, int len)
+public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophitslen, int[] iHits, char[] szMessage, int len, int client)
 {
 	char szName[256];
-
 	boss.dConfig.GetName(szName, sizeof(szName));
-	FormatEx(szMessage, len, "TOP BOSS %s [%s]\n", IsBreakable ? "DAMAGE" : "HITS", szName);
+
+	char sTitle[64], sDamage[32], sHits[32];
+	FormatEx(sTitle, sizeof(sTitle), "%T", "Top Boss", client);
+	FormatEx(sDamage, sizeof(sDamage), "%T", "Damage", client);
+	FormatEx(sHits, sizeof(sHits), "%T", "Hits", client);
+
+	if (g_cVTopHitsTitle.BoolValue)
+	{
+		char sTitleUpper[64], sDamageUpper[32], sHitsUpper[32];
+		FormatEx(sTitleUpper, sizeof(sTitleUpper), "%T", "Top Boss", client);
+		FormatEx(sDamageUpper, sizeof(sDamageUpper), "%T", "Damage", client);
+		FormatEx(sHitsUpper, sizeof(sHitsUpper), "%T", "Hits", client);
+
+		StringToUpperCase(sTitleUpper);
+		StringToUpperCase(sDamageUpper);
+		StringToUpperCase(sHitsUpper);
+	
+		FormatEx(szMessage, len, "%s %s [%s]\n", sTitleUpper, IsBreakable ? sDamageUpper : sHitsUpper, szName);
+	}
+	else
+	{
+		FormatEx(szMessage, len, "%T %s [%s]\n", "Top Boss", client, IsBreakable ? sDamage : sHits, szName);
+	}
 
 	for (int i = 0; i < tophitslen; i++)
 	{
-		int client = TopHits[i];
+		int iTopClient = TopHits[i];
 		char tmp[142];
 
 		char clientName[64];
-		if (!IsValidClient(client) || !GetClientName(client, clientName, sizeof(clientName)))
-			FormatEx(clientName, sizeof(clientName), "Disconnected (#%d)", client);
+		if (!IsValidClient(iTopClient) || !GetClientName(iTopClient, clientName, sizeof(clientName)))
+			FormatEx(clientName, sizeof(clientName), "Disconnected (#%d)", iTopClient);
 
-		FormatEx(tmp, sizeof(tmp), "%i. %s: %i %s\n", i + 1, clientName, iHits[client], IsBreakable ? "damage" : "hits");
+		FormatEx(tmp, sizeof(tmp), "%i. %s: %i %s\n", i + 1, clientName, iHits[iTopClient], IsBreakable ? sDamage : sHits);
 		StrCat(szMessage, len, tmp);
 	}
 }
@@ -1185,6 +1212,14 @@ public bool SetClientMoney(int client, int money)
 		return true;
 	}
 	return false;
+}
+
+stock void StringToUpperCase(char[] input)
+{
+    for (int i = 0; i < strlen(input); i++)
+    {
+        input[i] = CharToUpper(input[i]);
+    }
 }
 
 bool IsValidClient(int client, bool nobots = true)
@@ -1214,15 +1249,19 @@ public Action Command_BHud(int client, int argc)
 
 public Action Command_ShowDamage(int client, int args)
 {
+	char sEnabled[32], sDisabled[32];
+	FormatEx(sEnabled, sizeof(sEnabled), "%T", "Enabled", client);
+	FormatEx(sDisabled, sizeof(sDisabled), "%T", "Disabled", client);
+
 	g_bShowDmg[client] = !g_bShowDmg[client];
-	PrintToChat(client, "\x05[SM]\x01Show damage has been %s", (g_bShowDmg[client]) ? "enabled":"disabled");
+	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show damage has been", client, g_bShowDmg[client] ? sEnabled : sDisabled);
 	return Plugin_Handled;
 }
 
 public Action Command_ShowHealth(int client, int args)
 {
 	g_bShowHealth[client] = !g_bShowHealth[client];
-	PrintToChat(client, "\x05[SM]\x01Show health has been %s", (g_bShowHealth[client]) ? "enabled":"disabled");
+	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled");
 	return Plugin_Handled;
 }
 
@@ -1230,7 +1269,7 @@ public Action Command_CHP(int client, int argc)
 {
 	if (!IsValidEntity(g_iEntityId[client]))
 	{
-		PrintToChat(client, "[SM] Current entity is invalid (id %i)", g_iEntityId[client]);
+		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
 		return Plugin_Handled;
 	}
 
@@ -1240,7 +1279,7 @@ public Action Command_CHP(int client, int argc)
 
 	int health = GetEntityHealth(g_iEntityId[client]);
 
-	PrintToChat(client, "[SM] Entity %s %i (%s): %i HP", szName, g_iEntityId[client], szType, health);
+	CPrintToChat(client, "{green}[SM]{default} %T %s %i (%s): %i HP", "Entity", client, szName, g_iEntityId[client], szType, health);
 	return Plugin_Handled;
 }
 
@@ -1248,13 +1287,13 @@ public Action Command_SHP(int client, int argc)
 {
 	if(!IsValidEntity(g_iEntityId[client]))
 	{
-		PrintToChat(client, "[SM] Current entity is invalid (id %i)", g_iEntityId[client]);
+		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
 		return Plugin_Handled;
 	}
 
 	if (argc < 1)
 	{
-		ReplyToCommand(client, "[SM] Usage: sm_subtracthp <health>");
+		CReplyToCommand(client, "{green}[SM]{default} %T: sm_subtracthp <health>", "Usage", client);
 		return Plugin_Handled;
 	}
 
@@ -1265,7 +1304,7 @@ public Action Command_SHP(int client, int argc)
 
 	int health = EntitySetHealth(client, g_iEntityId[client], value, false);
 
-	PrintToChat(client, "[SM] %i health subtracted. (%i HP to %i HP)", value, health, health - value);
+	CPrintToChat(client, "{green}[SM]{default} %i health subtracted. (%i HP to %i HP)", value, health, health - value);
 
 	return Plugin_Handled;
 }
@@ -1274,13 +1313,13 @@ public Action Command_AHP(int client, int argc)
 {
 	if(!IsValidEntity(g_iEntityId[client]))
 	{
-		PrintToChat(client, "[SM] Current entity is invalid (id %i)", g_iEntityId[client]);
+		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
 		return Plugin_Handled;
 	}
 
 	if (argc < 1)
 	{
-		ReplyToCommand(client, "[SM] Usage: sm_addhp <health>");
+		CReplyToCommand(client, "{green}[SM]{default} %T: sm_addhp <health>", "Usage", client);
 		return Plugin_Handled;
 	}
 
@@ -1291,7 +1330,7 @@ public Action Command_AHP(int client, int argc)
 
 	int health = EntitySetHealth(client, g_iEntityId[client], value);
 
-	PrintToChat(client, "[SM] %i health added. (%i HP to %i HP)", value, health, health + value);
+	CPrintToChat(client, "{green}[SM]{default} %T", "Health added", client, value, health, health + value);
 
 	return Plugin_Handled;
 }
@@ -1309,7 +1348,7 @@ int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
 	if (strcmp(szType, "math_counter", false) == 0)
 	{
 		char sValue[64] = "Add";
-		if (bAdd)
+		if (!bAdd)
 			sValue = "Subtract";
 
 		bool foundAndApplied = false;
