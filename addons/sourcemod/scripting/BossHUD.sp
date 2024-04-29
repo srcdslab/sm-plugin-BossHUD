@@ -63,7 +63,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.6.7",
+	version = "3.6.8",
 	url = "antiteal.com"
 };
 
@@ -1167,16 +1167,15 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 
 	if (g_cVTopHitsTitle.BoolValue)
 	{
-		char sTitleUpper[64], sDamageUpper[32], sHitsUpper[32];
-		FormatEx(sTitleUpper, sizeof(sTitleUpper), "%T", "Top Boss", client);
+		char sDamageUpper[32], sHitsUpper[32];
 		FormatEx(sDamageUpper, sizeof(sDamageUpper), "%T", "Damage", client);
 		FormatEx(sHitsUpper, sizeof(sHitsUpper), "%T", "Hits", client);
 
-		StringToUpperCase(sTitleUpper);
+		StringToUpperCase(sTitle);
 		StringToUpperCase(sDamageUpper);
 		StringToUpperCase(sHitsUpper);
 	
-		FormatEx(szMessage, len, "%s %s [%s]\n", sTitleUpper, IsBreakable ? sDamageUpper : sHitsUpper, szName);
+		FormatEx(szMessage, len, "%s %s [%s]\n", sTitle, IsBreakable ? sDamageUpper : sHitsUpper, szName);
 	}
 	else
 	{
