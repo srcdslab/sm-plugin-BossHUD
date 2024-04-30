@@ -28,7 +28,7 @@ ConVar g_cVIgnoreFakeClients;
 ConVar g_cVHudHealthPercentageSquares;
 
 Handle g_hShowDmg = INVALID_HANDLE, g_hShowHealth = INVALID_HANDLE;
-Handle g_hHudSync = INVALID_HANDLE, g_hHudTopHitsSync = INVALID_HANDLE;
+Handle g_hHudSync = INVALID_HANDLE, g_hHudTopHitsSync = INVALID_HANDLE, g_hTimerHudMsgAll = INVALID_HANDLE;
 
 StringMap g_smBossMap = null;
 ArrayList g_aEntity = null;
@@ -434,9 +434,7 @@ public void BossHP_OnBossDead(CBoss boss)
 			continue;
 
 		BuildMessage(boss, boss.IsBreakable, TopHits, tophitlen, iHits, szMessage, len, i);
-		SendHudMsgAll(szMessage, DISPLAY_GAME, g_hHudTopHitsSync, g_iTopHitsColor, g_fTopHitsPos, 4.0, 255, true, false, i);
 	}
-	CPrintToChatAll("{yellow}%s", szMessage);
 
 	if (g_cVStatsReward.BoolValue)
 	{
@@ -813,6 +811,12 @@ void Cleanup(bool bPluginEnd = false)
 	delete g_hHudSync;
 	delete g_hHudTopHitsSync;
 
+	if (g_hTimerHudMsgAll != INVALID_HANDLE)
+	{
+		KillTimer(g_hTimerHudMsgAll);
+		g_hTimerHudMsgAll = INVALID_HANDLE;
+	}
+
 	if (bPluginEnd)
 	{
 		delete g_hShowDmg;
@@ -960,7 +964,7 @@ void SendHudMsgAll(
 			pack.WriteCell(client);
 
 			float fWaitTime = float(lastTime + iLastDuration - currentTime);
-			CreateTimer(fWaitTime, Timer_SendHudMsgAll, pack);
+			g_hTimerHudMsgAll = CreateTimer(fWaitTime, Timer_SendHudMsgAll, pack, TIMER_FLAG_NO_MAPCHANGE | TIMER_DATA_HNDL_CLOSE);
 
 			fLastDuration = fWaitTime + fDuration;
 			lastTime = currentTime;
@@ -1194,6 +1198,9 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 		FormatEx(tmp, sizeof(tmp), "%i. %s: %i %s\n", i + 1, clientName, iHits[iTopClient], IsBreakable ? sDamage : sHits);
 		StrCat(szMessage, len, tmp);
 	}
+
+	SendHudMsgAll(szMessage, DISPLAY_GAME, g_hHudTopHitsSync, g_iTopHitsColor, g_fTopHitsPos, 3.0, 255, false, false, client);
+	CPrintToChat(client, "{yellow}%s", szMessage);
 }
 
 public int GetClientMoney(int client)
