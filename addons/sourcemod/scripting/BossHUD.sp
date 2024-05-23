@@ -3,6 +3,7 @@
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
+#include <cstrike>
 #include <clientprefs>
 #include <BossHP>
 #include <loghelper>
@@ -221,7 +222,7 @@ public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
 		return;
 
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
-	if (!IsValidClient(client, g_bIgnoreFakeClients) || GetClientTeam(client) != 2)
+	if (!IsValidClient(client, g_bIgnoreFakeClients) || GetClientTeam(client) != CS_TEAM_T)
 		return;
 
 	int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
@@ -234,7 +235,8 @@ public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
 	if(g_bShowHealth[attacker])
 	{
 		char szMessage[128] = "Dead";
-		if(hp > 0) IntToString(hp, szMessage, sizeof(szMessage));
+		if(hp > 0)
+			IntToString(hp, szMessage, sizeof(szMessage));
 		Format(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
 		SendHudMsg(attacker, szMessage, g_iDisplayType);
 	}
