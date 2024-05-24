@@ -3,6 +3,7 @@
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
+#include <cstrike>
 #include <clientprefs>
 #include <BossHP>
 #include <loghelper>
@@ -24,7 +25,7 @@ ConVar g_cVTopHitsPos, g_cVTopHitsColor, g_cVTopHitsTitle, g_cVPlayersInTable;
 ConVar g_cVStatsReward, g_cVBossHitMoney;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
 ConVar g_cVHudTimeout, g_cvHUDChannel;
-ConVar g_cVIgnoreFakeClients;
+ConVar g_cVIgnoreFakeClients, g_cVShowDamagePlayers;
 ConVar g_cVHudHealthPercentageSquares;
 
 Handle g_hShowDmg = INVALID_HANDLE, g_hShowHealth = INVALID_HANDLE;
@@ -36,6 +37,11 @@ ArrayList g_aEntity = null;
 bool g_bShowDmg[MAXPLAYERS + 1] =  { true, ... };
 bool g_bShowHealth[MAXPLAYERS + 1] =  { true, ... };
 bool g_bHudSymbols;
+bool g_bTopHitsTitle = true;
+bool g_bBossHitMoney = true;
+bool g_bStatsReward = false;
+bool g_bIgnoreFakeClients = true;
+bool g_bShowDamagePlayers = true;
 
 int g_iEntityId[MAXPLAYERS+1] = { -1, ... };
 int g_iHudColor[3], g_iTopHitsColor[3];
@@ -56,6 +62,9 @@ float g_fTimeout = 0.5;
 
 int g_iMinHealthDetect = 1000;
 int g_iMaxHealthDetect = 100000;
+int g_iSquareCount = 0;
+int g_iHUDChannel = 1;
+int g_iPlayersInTable = 3;
 
 DisplayType g_iDisplayType;
 
@@ -119,7 +128,9 @@ public void OnPluginStart()
 	g_cVBossHitMoney = CreateConVar("sm_bhud_tophits_money", "1", "Enable/Disable payment of boss hits", _, true, 0.0, true, 1.0);
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
+	g_cVShowDamagePlayers = CreateConVar("sm_bhud_showdamage_players", "1", "Enable/Disable showing damage to players.", _, true, 0.0, true, 1.0);
 
+	g_cVHudHealthPercentageSquares.AddChangeHook(OnConVarChange);
 	g_cVHudMinHealth.AddChangeHook(OnConVarChange);
 	g_cVHudMaxHealth.AddChangeHook(OnConVarChange);
 	g_cVHudPosition.AddChangeHook(OnConVarChange);
@@ -129,6 +140,13 @@ public void OnPluginStart()
 	g_cVHudTimeout.AddChangeHook(OnConVarChange);
 	g_cVTopHitsPos.AddChangeHook(OnConVarChange);
 	g_cVTopHitsColor.AddChangeHook(OnConVarChange);
+	g_cvHUDChannel.AddChangeHook(OnConVarChange);
+	g_cVTopHitsTitle.AddChangeHook(OnConVarChange);
+	g_cVPlayersInTable.AddChangeHook(OnConVarChange);
+	g_cVBossHitMoney.AddChangeHook(OnConVarChange);
+	g_cVStatsReward.AddChangeHook(OnConVarChange);
+	g_cVIgnoreFakeClients.AddChangeHook(OnConVarChange);
+	g_cVShowDamagePlayers.AddChangeHook(OnConVarChange);
 
 	AutoExecConfig(true);
 	GetConVars();
@@ -200,29 +218,33 @@ public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast
 
 public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
 {
+	if (!g_bShowDamagePlayers)
+		return;
+
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
+	if (!IsValidClient(client, g_bIgnoreFakeClients) || GetClientTeam(client) != CS_TEAM_T)
+		return;
+
 	int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
+	if (!IsValidClient(attacker, g_bIgnoreFakeClients))
+		return;
+
 	int dmg = -GetEventInt(event, "dmg_health");
 	int hp = GetEventInt(event, "health") + dmg;
 
-	if (IsValidClient(client, g_cVIgnoreFakeClients.BoolValue) && IsValidClient(attacker, g_cVIgnoreFakeClients.BoolValue))
+	if(g_bShowHealth[attacker])
 	{
-		if(GetClientTeam(client) == 2)
-		{
-			if(g_bShowHealth[attacker])
-			{
-				char szMessage[128] = "Dead";
-				if(hp > 0) IntToString(hp, szMessage, sizeof(szMessage));
-				Format(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
-				SendHudMsg(attacker, szMessage, g_iDisplayType);
-			}
-			if(g_bShowDmg[attacker])
-			{
-				char szMessage[128];
-				Format(szMessage, sizeof(szMessage), "%i HP", dmg);
-				SendHudMsg(attacker, szMessage);
-			}
-		}
+		char szMessage[128] = "Dead";
+		if(hp > 0)
+			IntToString(hp, szMessage, sizeof(szMessage));
+		Format(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
+		SendHudMsg(attacker, szMessage, g_iDisplayType);
+	}
+	if(g_bShowDmg[attacker])
+	{
+		char szMessage[128];
+		Format(szMessage, sizeof(szMessage), "%i HP", dmg);
+		SendHudMsg(attacker, szMessage);
 	}
 }
 
@@ -338,7 +360,7 @@ public int MenuHandler_BHud(Menu menu, MenuAction action, int param1, int param2
 
 public void Hook_OnDamage(const char[] output, int caller, int activator, float delay)
 {
-	if (!IsValidClient(activator, g_cVIgnoreFakeClients.BoolValue))
+	if (!IsValidClient(activator, g_bIgnoreFakeClients))
 		return;
 
 	CBoss boss;
@@ -379,7 +401,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 			iHits[activator]++;
 		}
 
-		if(g_cVBossHitMoney.BoolValue)
+		if(g_bBossHitMoney)
 		{
 			int cash = GetClientMoney(activator);
 			SetClientMoney(activator, ++cash);
@@ -421,8 +443,7 @@ public void BossHP_OnBossDead(CBoss boss)
 	if (hitlen <= 0)
 		return;
 
-	int players_in_table = GetConVarInt(g_cVPlayersInTable);
-	int tophitlen = (players_in_table < hitlen) ? players_in_table:hitlen;
+	int tophitlen = (g_iPlayersInTable < hitlen) ? g_iPlayersInTable:hitlen;
 	int[] TopHits = new int[tophitlen];
 	GetTopHits(TopHits, iHits, iHits_Sorted, tophitlen, MAXPLAYERS+1);
 
@@ -436,7 +457,7 @@ public void BossHP_OnBossDead(CBoss boss)
 		BuildMessage(boss, boss.IsBreakable, TopHits, tophitlen, iHits, szMessage, len, i);
 	}
 
-	if (g_cVStatsReward.BoolValue)
+	if (g_bStatsReward)
 	{
 		for (int i = 0; i < tophitlen; i++)
 		{
@@ -485,10 +506,10 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 		if (iHPPercentage > 100) iHPPercentage = 100;
 		if (iHPPercentage <= 0) iHPPercentage = 0;
 
-		if (g_cVHudHealthPercentageSquares.IntValue > 1)
+		if (g_iSquareCount > 1)
 		{
 			char sPercentText[MAX_TEXT_LENGTH];
-			CreateHPIconPercent(iHPPercentage, g_cVHudHealthPercentageSquares.IntValue, sPercentText, MAX_TEXT_LENGTH);
+			CreateHPIconPercent(iHPPercentage, g_iSquareCount, sPercentText, MAX_TEXT_LENGTH);
 			FormatLen += StrCat(sFormat, sizeof(sFormat), sPercentText);
 		}
 		else
@@ -675,6 +696,15 @@ public void GetConVars()
 
 	g_iMinHealthDetect = g_cVHudMinHealth.IntValue;
 	g_iMaxHealthDetect = g_cVHudMaxHealth.IntValue;
+	g_iSquareCount = g_cVHudHealthPercentageSquares.IntValue;
+	g_iHUDChannel = g_cvHUDChannel.IntValue;
+	g_bTopHitsTitle = g_cVTopHitsTitle.BoolValue;
+	g_iPlayersInTable = g_cVPlayersInTable.IntValue;
+	g_bBossHitMoney = g_cVBossHitMoney.BoolValue;
+	g_bStatsReward = g_cVStatsReward.BoolValue;
+	g_bIgnoreFakeClients = g_cVIgnoreFakeClients.BoolValue;
+	g_bShowDamagePlayers = g_cVShowDamagePlayers.BoolValue;
+
 }
 
 public void ReadClientCookies(int client)
@@ -1007,15 +1037,14 @@ void SendHudMsg(
 			bool bDynamicAvailable = false;
 			int iHUDChannel = -1;
 
-			int iChannel = g_cvHUDChannel.IntValue;
-			if (iChannel < 0 || iChannel > 6)
-				iChannel = 1;
+			if (g_iHUDChannel < 0 || g_iHUDChannel > 6)
+				g_iHUDChannel = 1;
 
 			bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
 
 		#if defined _DynamicChannels_included_
 			if (bDynamicAvailable)
-				iHUDChannel = GetDynamicChannel(iChannel);
+				iHUDChannel = GetDynamicChannel(g_iHUDChannel);
 		#endif
 
 			if (bDynamicAvailable)
@@ -1169,7 +1198,7 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 	FormatEx(sDamage, sizeof(sDamage), "%T", "Damage", client);
 	FormatEx(sHits, sizeof(sHits), "%T", "Hits", client);
 
-	if (g_cVTopHitsTitle.BoolValue)
+	if (g_bTopHitsTitle)
 	{
 		char sDamageUpper[32], sHitsUpper[32];
 		FormatEx(sDamageUpper, sizeof(sDamageUpper), "%T", "Damage", client);
