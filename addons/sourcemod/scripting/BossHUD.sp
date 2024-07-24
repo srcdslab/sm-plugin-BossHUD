@@ -1037,33 +1037,6 @@ void SendHudMsg(
 	}
 }
 
-stock void PrintHintTextRGB(int client, const char[] format, any ...)
-{
-	char buff[2048];
-	VFormat(buff, sizeof(buff), format, 3);
-	FormatEx(buff, sizeof(buff), "</font>%s ", buff);
-
-	for (int i = strlen(buff); i < sizeof(buff); i++)
-	{
-		buff[i] = ' ';
-	}
-
-	Handle hMessage = StartMessageOne("TextMsg", client, USERMSG_RELIABLE);
-
-	if (hMessage != INVALID_HANDLE)
-	{
-		PbSetInt(hMessage, "msg_dst", 4);
-		PbAddString(hMessage, "params", "#SFUI_ContractKillStart");
-		PbAddString(hMessage, "params", buff);
-		PbAddString(hMessage, "params", NULL_STRING);
-		PbAddString(hMessage, "params", NULL_STRING);
-		PbAddString(hMessage, "params", NULL_STRING);
-		PbAddString(hMessage, "params", NULL_STRING);
-
-		EndMessage();
-	}
-}
-
 public void BuildName(CBoss boss, char[] szName, int maxlen)
 {
 	CConfig config = boss.dConfig;
