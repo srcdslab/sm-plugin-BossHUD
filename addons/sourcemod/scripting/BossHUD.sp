@@ -28,13 +28,12 @@ ConVar g_cVHudTimeout, g_cvHUDChannel;
 ConVar g_cVIgnoreFakeClients;
 ConVar g_cVHudHealthPercentageSquares;
 
-Handle g_hShowDmg = INVALID_HANDLE, g_hShowHealth = INVALID_HANDLE;
+Handle g_hShowHealth = INVALID_HANDLE;
 Handle g_hHudSync = INVALID_HANDLE, g_hHudTopHitsSync = INVALID_HANDLE, g_hTimerHudMsgAll = INVALID_HANDLE;
 
 StringMap g_smBossMap = null;
 ArrayList g_aEntity = null;
 
-bool g_bShowDmg[MAXPLAYERS + 1] =  { true, ... };
 bool g_bShowHealth[MAXPLAYERS + 1] =  { true, ... };
 bool g_bHudSymbols;
 bool g_bTopHitsTitle = true;
@@ -84,7 +83,6 @@ public void OnPluginStart()
 {
 	LoadTranslations("BossHUD.phrases");
 
-	g_hShowDmg = RegClientCookie("bhud_showdamage", "Enable/Disable show damage", CookieAccess_Private);
 	g_hShowHealth = RegClientCookie("bhud_showhealth", "Enabled/Disable show health", CookieAccess_Private);
 
 	SetCookieMenuItem(CookieMenu_BHud, INVALID_HANDLE, "BHud Settings");
@@ -95,8 +93,6 @@ public void OnPluginStart()
 	RegAdminCmd("sm_subtracthp", Command_SHP, ADMFLAG_GENERIC, "Subtract Current HP");
 	RegAdminCmd("sm_addhp", Command_AHP, ADMFLAG_GENERIC, "Add Current HP");
 
-	RegConsoleCmd("sm_showdamage", Command_ShowDamage, "Toggle seeing boss damages inflicted");
-	RegConsoleCmd("sm_showdmg", Command_ShowDamage, "Toggle seeing boss damages inflicted");
 	RegConsoleCmd("sm_showhealth", Command_ShowHealth, "Toggle seeing boss health");
 	RegConsoleCmd("sm_showhp", Command_ShowHealth, "Toggle seeing boss health");
 
@@ -281,10 +277,6 @@ public int MenuHandler_BHud(Menu menu, MenuAction action, int param1, int param2
 			{
 				case 0:
 				{
-					g_bShowDmg[param1] = !g_bShowDmg[param1];
-				}
-				case 1:
-				{
 					g_bShowHealth[param1] = !g_bShowHealth[param1];
 				}
 				default:return 0;
@@ -297,10 +289,6 @@ public int MenuHandler_BHud(Menu menu, MenuAction action, int param1, int param2
 			switch(param2)
 			{
 				case 0:
-				{
-					FormatEx(buffer, sizeof(buffer), "Show damage: %s", (g_bShowDmg[param1]) ? "Enabled":"Disabled");
-				}
-				case 1:
 				{
 					FormatEx(buffer, sizeof(buffer), "Show health: %s", (g_bShowHealth[param1]) ? "Enabled":"Disabled");
 				}
@@ -670,10 +658,6 @@ public void GetConVars()
 public void ReadClientCookies(int client)
 {
 	char sValue[8];
-
-	GetClientCookie(client, g_hShowDmg, sValue, sizeof(sValue));
-	g_bShowDmg[client] = (sValue[0] == '\0' ? true : StringToInt(sValue) == 1);
-
 	GetClientCookie(client, g_hShowHealth, sValue, sizeof(sValue));
 	g_bShowHealth[client] = (sValue[0] == '\0' ? true : StringToInt(sValue) == 1);
 }
@@ -681,10 +665,6 @@ public void ReadClientCookies(int client)
 public void SetClientCookies(int client)
 {
 	char sValue[8];
-
-	FormatEx(sValue, sizeof(sValue), "%i", g_bShowDmg[client]);
-	SetClientCookie(client, g_hShowDmg, sValue);
-
 	FormatEx(sValue, sizeof(sValue), "%i", g_bShowHealth[client]);
 	SetClientCookie(client, g_hShowHealth, sValue);
 }
@@ -809,7 +789,6 @@ void Cleanup(bool bPluginEnd = false)
 
 	if (bPluginEnd)
 	{
-		delete g_hShowDmg;
 		delete g_hShowHealth;
 		delete g_cVHudPosition;
 		delete g_cVHudColor;
@@ -1188,17 +1167,6 @@ bool IsValidClient(int client, bool nobots = true)
 public Action Command_BHud(int client, int argc)
 {
 	DisplayCookieMenu(client);
-	return Plugin_Handled;
-}
-
-public Action Command_ShowDamage(int client, int args)
-{
-	char sEnabled[32], sDisabled[32];
-	FormatEx(sEnabled, sizeof(sEnabled), "%T", "Enabled", client);
-	FormatEx(sDisabled, sizeof(sDisabled), "%T", "Disabled", client);
-
-	g_bShowDmg[client] = !g_bShowDmg[client];
-	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show damage has been", client, g_bShowDmg[client] ? sEnabled : sDisabled);
 	return Plugin_Handled;
 }
 
