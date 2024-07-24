@@ -37,7 +37,6 @@ bool g_bTopHitsTitle = true;
 bool g_bBossHitMoney = true;
 bool g_bStatsReward = false;
 bool g_bIgnoreFakeClients = true;
-bool g_bShowDamagePlayers = true;
 
 int g_iEntityId[MAXPLAYERS+1] = { -1, ... };
 int g_iHudColor[3], g_iTopHitsColor[3];
@@ -93,7 +92,6 @@ public void OnPluginStart()
 	HookEntityOutput("func_breakable", "OnHealthChanged", Hook_OnDamage);
 	HookEntityOutput("math_counter", "OutValue", Hook_OnDamage);
 
-	HookEvent("player_hurt", Event_PlayerHurt, EventHookMode_Pre);
 	HookEvent("round_end", Event_OnRoundEnd, EventHookMode_PostNoCopy);
 
 	g_cVHudPosition = CreateConVar("sm_bhud_position", "-1.0 0.09", "The X and Y position for the hud.");
@@ -182,38 +180,6 @@ public void OnClientDisconnect(int client)
 public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
 	CleanupAndInit();
-}
-
-public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
-{
-	if (!g_bShowDamagePlayers)
-		return;
-
-	int client = GetClientOfUserId(GetEventInt(event, "userid"));
-	if (!IsValidClient(client, g_bIgnoreFakeClients) || GetClientTeam(client) != CS_TEAM_T)
-		return;
-
-	int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
-	if (!IsValidClient(attacker, g_bIgnoreFakeClients))
-		return;
-
-	int dmg = -GetEventInt(event, "dmg_health");
-	int hp = GetEventInt(event, "health") + dmg;
-
-	if (g_bShowHealth[attacker])
-	{
-		char szMessage[128] = "Dead";
-		if (hp > 0)
-			IntToString(hp, szMessage, sizeof(szMessage));
-		Format(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
-		SendHudMsg(attacker, szMessage, g_iDisplayType);
-	}
-	if (g_bShowDmg[attacker])
-	{
-		char szMessage[128];
-		Format(szMessage, sizeof(szMessage), "%i HP", dmg);
-		SendHudMsg(attacker, szMessage);
-	}
 }
 
 public void OnConVarChange(ConVar convar, char[] oldValue, char[] newValue)
@@ -671,8 +637,6 @@ public void GetConVars()
 	g_bBossHitMoney = g_cVBossHitMoney.BoolValue;
 	g_bStatsReward = g_cVStatsReward.BoolValue;
 	g_bIgnoreFakeClients = g_cVIgnoreFakeClients.BoolValue;
-	g_bShowDamagePlayers = g_cVShowDamagePlayers.BoolValue;
-
 }
 
 public void ReadClientCookies(int client)
