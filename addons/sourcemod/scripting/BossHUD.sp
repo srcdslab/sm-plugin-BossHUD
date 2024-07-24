@@ -28,7 +28,8 @@ ConVar g_cVHudTimeout, g_cvHUDChannel;
 ConVar g_cVIgnoreFakeClients;
 ConVar g_cVHudHealthPercentageSquares;
 
-Handle g_hShowHealth = INVALID_HANDLE;
+Cookie g_cShowHealth;
+
 Handle g_hHudSync = INVALID_HANDLE, g_hHudTopHitsSync = INVALID_HANDLE, g_hTimerHudMsgAll = INVALID_HANDLE;
 
 StringMap g_smBossMap = null;
@@ -83,7 +84,7 @@ public void OnPluginStart()
 {
 	LoadTranslations("BossHUD.phrases");
 
-	g_hShowHealth = RegClientCookie("bhud_showhealth", "Enabled/Disable show health", CookieAccess_Private);
+	g_cShowHealth = new Cookie("bhud_showhealth", "Toggle boss health display", CookieAccess_Private);
 
 	SetCookieMenuItem(CookieMenu_BHud, INVALID_HANDLE, "BHud Settings");
 
@@ -658,15 +659,15 @@ public void GetConVars()
 public void ReadClientCookies(int client)
 {
 	char sValue[8];
-	GetClientCookie(client, g_hShowHealth, sValue, sizeof(sValue));
-	g_bShowHealth[client] = (sValue[0] == '\0' ? true : StringToInt(sValue) == 1);
+	g_cShowHealth.Get(client, sValue, sizeof(sValue));
+	g_bShowHealth[client] = (sValue[0] == '\0' ? true : view_as<bool>(StringToInt(sValue)));
 }
 
 public void SetClientCookies(int client)
 {
 	char sValue[8];
 	FormatEx(sValue, sizeof(sValue), "%i", g_bShowHealth[client]);
-	SetClientCookie(client, g_hShowHealth, sValue);
+	g_cShowHealth.Set(client, sValue);
 }
 
 bool CEntityRemove(int entity)
@@ -789,7 +790,7 @@ void Cleanup(bool bPluginEnd = false)
 
 	if (bPluginEnd)
 	{
-		delete g_hShowHealth;
+		delete g_cShowHealth;
 		delete g_cVHudPosition;
 		delete g_cVHudColor;
 		delete g_cVHudSymbols;
