@@ -50,7 +50,6 @@ float g_fHudPos[2], g_fTopHitsPos[2];
 
 bool g_bLate = false;
 bool g_bIsCSGO = false;
-bool g_bDynamicChannels = false;
 
 char g_sHUDText[256];
 char g_sHUDTextSave[256];
@@ -164,23 +163,6 @@ public void OnPluginStart()
 			}
 		}
 	}
-}
-
-public void OnAllPluginsLoaded()
-{
-	g_bDynamicChannels = LibraryExists("DynamicChannels");
-}
-
-public void OnLibraryAdded(const char[] name)
-{
-	if (strcmp(name, "DynamicChannels", false) == 0)
-		g_bDynamicChannels = true;
-}
-
-public void OnLibraryRemoved(const char[] name)
-{
-	if (strcmp(name, "DynamicChannels", false) == 0)
-		g_bDynamicChannels = false;
 }
 
 public void OnPluginEnd()
@@ -1039,13 +1021,6 @@ void SendHudMsg(
 
 			if (g_iHUDChannel < 0 || g_iHUDChannel > 6)
 				g_iHUDChannel = 1;
-
-			bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
-
-		#if defined _DynamicChannels_included_
-			if (bDynamicAvailable)
-				iHUDChannel = GetDynamicChannel(g_iHUDChannel);
-		#endif
 
 			if (bDynamicAvailable)
 				ShowHudText(client, iHUDChannel, "%s", szMessageFinale);
