@@ -43,6 +43,8 @@ int g_iHudColor[3], g_iTopHitsColor[3];
 
 float g_fHudPos[2], g_fTopHitsPos[2];
 
+bool g_bLate = false;
+
 char g_sHUDText[256];
 char g_sHUDTextSave[256];
 
@@ -66,6 +68,12 @@ public Plugin myinfo = {
 	version = "3.6.8",
 	url = "antiteal.com"
 };
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_bLate = late;
+	return APLRes_Success;
+}
 
 public void OnPluginStart()
 {
