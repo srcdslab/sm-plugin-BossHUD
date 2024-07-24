@@ -48,9 +48,6 @@ int g_iHudColor[3], g_iTopHitsColor[3];
 
 float g_fHudPos[2], g_fTopHitsPos[2];
 
-bool g_bLate = false;
-bool g_bIsCSGO = false;
-
 char g_sHUDText[256];
 char g_sHUDTextSave[256];
 
@@ -74,13 +71,6 @@ public Plugin myinfo = {
 	version = "3.6.8",
 	url = "antiteal.com"
 };
-
-public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
-{
-	g_bIsCSGO = (GetEngineVersion() == Engine_CSGO);
-	g_bLate = late;
-	return APLRes_Success;
-}
 
 public void OnPluginStart()
 {
@@ -1033,41 +1023,17 @@ void SendHudMsg(
 	}
 	else if (type == DISPLAY_HINT && !IsVoteInProgress())
 	{
-		if (g_bIsCSGO)
-		{
-			int rgb;
-			rgb |= ((g_iHudColor[0] & 0xFF) << 16);
-			rgb |= ((g_iHudColor[1] & 0xFF) << 8 );
-			rgb |= ((g_iHudColor[2] & 0xFF) << 0 );
-			ReplaceString(szMessage, 256, "\n", "<br/>");
-			PrintHintTextRGB(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
-		}
-		else
-		{
-			char szMessageFinale[512];
-			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
-			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%%");
-			PrintHintText(client, "%s", szMessageFinale);
-		}
+		char szMessageFinale[512];
+		FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
+		ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%%");
+		PrintHintText(client, "%s", szMessageFinale);
 	}
 	else
 	{
-		if (g_bIsCSGO)
-		{
-			int rgb;
-			rgb |= ((g_iHudColor[0] & 0xFF) << 16);
-			rgb |= ((g_iHudColor[1] & 0xFF) << 8 );
-			rgb |= ((g_iHudColor[2] & 0xFF) << 0 );
-			ReplaceString(szMessage, 256, "\n", "<br/>");
-			PrintCenterText(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
-		}
-		else
-		{
-			char szMessageFinale[512];
-			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
-			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%");
-			PrintCenterText(client, "%s", szMessageFinale);
-		}
+		char szMessageFinale[512];
+		FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
+		ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%");
+		PrintCenterText(client, "%s", szMessageFinale);
 	}
 }
 
