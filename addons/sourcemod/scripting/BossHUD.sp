@@ -21,7 +21,7 @@ ConVar g_cVTopHitsPos, g_cVTopHitsColor, g_cVTopHitsTitle, g_cVPlayersInTable;
 ConVar g_cVStatsReward, g_cVBossHitMoney;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
 ConVar g_cVHudTimeout, g_cvHUDChannel;
-ConVar g_cVIgnoreFakeClients, g_cVShowDamagePlayers;
+ConVar g_cVIgnoreFakeClients;
 ConVar g_cVHudHealthPercentageSquares;
 
 Handle g_hShowDmg = INVALID_HANDLE, g_hShowHealth = INVALID_HANDLE;
@@ -119,7 +119,6 @@ public void OnPluginStart()
 	g_cVBossHitMoney = CreateConVar("sm_bhud_tophits_money", "1", "Enable/Disable payment of boss hits", _, true, 0.0, true, 1.0);
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
-	g_cVShowDamagePlayers = CreateConVar("sm_bhud_showdamage_players", "1", "Enable/Disable showing damage to players.", _, true, 0.0, true, 1.0);
 
 	g_cVHudHealthPercentageSquares.AddChangeHook(OnConVarChange);
 	g_cVHudMinHealth.AddChangeHook(OnConVarChange);
@@ -137,7 +136,6 @@ public void OnPluginStart()
 	g_cVBossHitMoney.AddChangeHook(OnConVarChange);
 	g_cVStatsReward.AddChangeHook(OnConVarChange);
 	g_cVIgnoreFakeClients.AddChangeHook(OnConVarChange);
-	g_cVShowDamagePlayers.AddChangeHook(OnConVarChange);
 
 	AutoExecConfig(true);
 	GetConVars();
