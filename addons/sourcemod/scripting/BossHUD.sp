@@ -972,8 +972,6 @@ void SendHudMsg(
 			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
 			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "%");
 
-			int iHUDChannel = -1;
-
 			if (g_iHUDChannel < 0 || g_iHUDChannel > 6)
 				g_iHUDChannel = 1;
 
