@@ -154,20 +154,31 @@ public void OnPluginStart()
 public void OnAllPluginsLoaded()
 {
 	g_bDynamicChannels = LibraryExists("DynamicChannels");
+	VerifyNatives();
 }
 
 public void OnLibraryAdded(const char[] name)
 {
 	if (strcmp(name, "DynamicChannels", false) == 0)
+	{
 		g_bDynamicChannels = true;
+		VerifyNatives();
+	}
 }
 
 public void OnLibraryRemoved(const char[] name)
 {
 	if (strcmp(name, "DynamicChannels", false) == 0)
+	{
 		g_bDynamicChannels = false;
+		VerifyNatives();
+	}
 }
 
+stock void VerifyNatives()
+{
+	bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
+}
 public void OnPluginEnd()
 {
 	// Late unload
@@ -899,8 +910,6 @@ void SendHudMsg(
 
 			if (g_iHUDChannel < 0 || g_iHUDChannel > 6)
 				g_iHUDChannel = 1;
-
-			bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
 
 		#if defined _DynamicChannels_included_
 			if (bDynamicAvailable)
