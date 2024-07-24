@@ -572,10 +572,7 @@ public void LagReducer_OnStartGameFrame()
 public void LagReducer_OnClientGameFrame(int iClient)
 {
 	if (g_sHUDTextSave[0] && IsValidClient(iClient) && g_bShowHealth[iClient])
-	{
-		if (IsValidClient(iClient) && g_bShowHealth[iClient])
-			SendHudMsg(iClient, g_sHUDTextSave, g_iDisplayType, INVALID_HANDLE, g_iHudColor, g_fHudPos, 3.0, 255);
-	}
+		SendHudMsg(iClient, g_sHUDTextSave, g_iDisplayType, INVALID_HANDLE, g_iHudColor, g_fHudPos, 3.0, 255);
 }
 
 // ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######
