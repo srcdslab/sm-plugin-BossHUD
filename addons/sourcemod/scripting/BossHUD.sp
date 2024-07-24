@@ -158,7 +158,7 @@ public void OnPluginStart()
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
-			if(IsClientConnected(i))
+			if (IsClientConnected(i))
 			{
 				OnClientPutInServer(i);
 			}
@@ -190,7 +190,7 @@ public void OnPluginEnd()
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
-			if(IsClientConnected(i))
+			if (IsClientConnected(i))
 			{
 				OnClientDisconnect(i);
 			}
@@ -211,8 +211,8 @@ public void OnClientDisconnect(int client)
 	SetClientCookies(client);
 }
 
-public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast) 
-{ 
+public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
+{
 	CleanupAndInit();
 }
 
@@ -232,15 +232,15 @@ public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
 	int dmg = -GetEventInt(event, "dmg_health");
 	int hp = GetEventInt(event, "health") + dmg;
 
-	if(g_bShowHealth[attacker])
+	if (g_bShowHealth[attacker])
 	{
 		char szMessage[128] = "Dead";
-		if(hp > 0)
+		if (hp > 0)
 			IntToString(hp, szMessage, sizeof(szMessage));
 		Format(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
 		SendHudMsg(attacker, szMessage, g_iDisplayType);
 	}
-	if(g_bShowDmg[attacker])
+	if (g_bShowDmg[attacker])
 	{
 		char szMessage[128];
 		Format(szMessage, sizeof(szMessage), "%i HP", dmg);
@@ -305,12 +305,12 @@ public int MenuHandler_BHud(Menu menu, MenuAction action, int param1, int param2
 	{
 		case MenuAction_End:
 		{
-			if(param1 != MenuEnd_Selected)
+			if (param1 != MenuEnd_Selected)
 				delete menu;
 		}
 		case MenuAction_Cancel:
 		{
-			if(param2 == MenuCancel_ExitBack)
+			if (param2 == MenuCancel_ExitBack)
 				ShowCookieMenu(param1);
 		}
 		case MenuAction_Select:
@@ -350,13 +350,13 @@ public int MenuHandler_BHud(Menu menu, MenuAction action, int param1, int param2
 }
 
 
-// ##     ##  #######   #######  ##    ##  ######  
-// ##     ## ##     ## ##     ## ##   ##  ##    ## 
-// ##     ## ##     ## ##     ## ##  ##   ##       
-// ######### ##     ## ##     ## #####     ######  
-// ##     ## ##     ## ##     ## ##  ##         ## 
-// ##     ## ##     ## ##     ## ##   ##  ##    ## 
-// ##     ##  #######   #######  ##    ##  ######  
+// ##     ##  #######   #######  ##    ##  ######
+// ##     ## ##     ## ##     ## ##   ##  ##    ##
+// ##     ## ##     ## ##     ## ##  ##   ##
+// ######### ##     ## ##     ## #####     ######
+// ##     ## ##     ## ##     ## ##  ##         ##
+// ##     ## ##     ## ##     ## ##   ##  ##    ##
+// ##     ##  #######   #######  ##    ##  ######
 
 public void Hook_OnDamage(const char[] output, int caller, int activator, float delay)
 {
@@ -401,7 +401,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 			iHits[activator]++;
 		}
 
-		if(g_bBossHitMoney)
+		if (g_bBossHitMoney)
 		{
 			int cash = GetClientMoney(activator);
 			SetClientMoney(activator, ++cash);
@@ -486,7 +486,7 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 	if (fTimeout < 0.0 || fGameTime - fLastChange < fTimeout)
 	{
 		char sFormat[MAX_TEXT_LENGTH];
-		if(g_sHUDText[0])
+		if (g_sHUDText[0])
 		{
 			sFormat[0] = '\n';
 			_Config.GetName(sFormat[1], sizeof(sFormat) - 1);
@@ -627,12 +627,12 @@ public void LagReducer_OnClientGameFrame(int iClient)
 	}
 }
 
-// ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######  
-// ##       ##     ## ###   ## ##    ##    ##     ##  ##     ## ###   ## ##    ## 
-// ##       ##     ## ####  ## ##          ##     ##  ##     ## ####  ## ##       
-// ######   ##     ## ## ## ## ##          ##     ##  ##     ## ## ## ##  ######  
-// ##       ##     ## ##  #### ##          ##     ##  ##     ## ##  ####       ## 
-// ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ## 
+// ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######
+// ##       ##     ## ###   ## ##    ##    ##     ##  ##     ## ###   ## ##    ##
+// ##       ##     ## ####  ## ##          ##     ##  ##     ## ####  ## ##
+// ######   ##     ## ## ## ## ##          ##     ##  ##     ## ## ## ##  ######
+// ##       ##     ## ##  #### ##          ##     ##  ##     ## ##  ####       ##
+// ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ##
 // ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######
 
 public void CreateHPIconPercent(int hpPercent, int squareCount, char[] sText, int iSize)
@@ -789,7 +789,7 @@ void ProcessEntitySpawned(int entity)
 
 void ProcessEntityDestroyed(int entity)
 {
-	if(IsValidEntity(entity))
+	if (IsValidEntity(entity))
 	{
 		char szName[64];
 		GetEntityName(entity, szName);
@@ -1022,7 +1022,7 @@ void SendHudMsg(
 	int iTransparency = 255
 )
 {
-	if(type == DISPLAY_GAME)
+	if (type == DISPLAY_GAME)
 	{
 		if (hHudSync == INVALID_HANDLE && g_hHudSync != INVALID_HANDLE)
 			hHudSync = g_hHudSync;
@@ -1102,14 +1102,14 @@ stock void PrintHintTextRGB(int client, const char[] format, any ...)
 	VFormat(buff, sizeof(buff), format, 3);
 	FormatEx(buff, sizeof(buff), "</font>%s ", buff);
 
-	for(int i = strlen(buff); i < sizeof(buff); i++)
+	for (int i = strlen(buff); i < sizeof(buff); i++)
 	{
 		buff[i] = ' ';
 	}
 
 	Handle hMessage = StartMessageOne("TextMsg", client, USERMSG_RELIABLE);
-	
-	if(hMessage != INVALID_HANDLE)
+
+	if (hMessage != INVALID_HANDLE)
 	{
 		PbSetInt(hMessage, "msg_dst", 4);
 		PbAddString(hMessage, "params", "#SFUI_ContractKillStart");
@@ -1118,7 +1118,7 @@ stock void PrintHintTextRGB(int client, const char[] format, any ...)
 		PbAddString(hMessage, "params", NULL_STRING);
 		PbAddString(hMessage, "params", NULL_STRING);
 		PbAddString(hMessage, "params", NULL_STRING);
-		
+
 		EndMessage();
 	}
 }
@@ -1127,17 +1127,17 @@ public void BuildName(CBoss boss, char[] szName, int maxlen)
 {
 	CConfig config = boss.dConfig;
 	config.GetName(szName, maxlen);
-	if(config.IsBreakable)
+	if (config.IsBreakable)
 	{
 		CBossBreakable _boss = view_as<CBossBreakable>(boss);
 		FormatEx(szName, maxlen, "%s%i", szName, _boss.iBreakableEnt);
 	}
-	else if(config.IsCounter)
+	else if (config.IsCounter)
 	{
 		CBossCounter _boss = view_as<CBossCounter>(boss);
 		FormatEx(szName, maxlen, "%s%i", szName, _boss.iCounterEnt);
 	}
-	else if(config.IsHPBar)
+	else if (config.IsHPBar)
 	{
 		CBossHPBar _boss = view_as<CBossHPBar>(boss);
 		FormatEx(szName, maxlen, "%s%i", szName, _boss.iBackupEnt);
@@ -1207,7 +1207,7 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 		StringToUpperCase(sTitle);
 		StringToUpperCase(sDamageUpper);
 		StringToUpperCase(sHitsUpper);
-	
+
 		FormatEx(szMessage, len, "%s %s [%s]\n", sTitle, IsBreakable ? sDamageUpper : sHitsUpper, szName);
 	}
 	else
@@ -1234,14 +1234,14 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 
 public int GetClientMoney(int client)
 {
-	if(IsValidClient(client))
+	if (IsValidClient(client))
 		return GetEntProp(client, Prop_Send, "m_iAccount");
 	return -1;
 }
 
 public bool SetClientMoney(int client, int money)
 {
-	if(IsValidClient(client))
+	if (IsValidClient(client))
 	{
 		SetEntProp(client, Prop_Send, "m_iAccount", money);
 		return true;
@@ -1251,10 +1251,10 @@ public bool SetClientMoney(int client, int money)
 
 stock void StringToUpperCase(char[] input)
 {
-    for (int i = 0; i < strlen(input); i++)
-    {
-        input[i] = CharToUpper(input[i]);
-    }
+	for (int i = 0; i < strlen(input); i++)
+	{
+		input[i] = CharToUpper(input[i]);
+	}
 }
 
 bool IsValidClient(int client, bool nobots = true)
@@ -1320,7 +1320,7 @@ public Action Command_CHP(int client, int argc)
 
 public Action Command_SHP(int client, int argc)
 {
-	if(!IsValidEntity(g_iEntityId[client]))
+	if (!IsValidEntity(g_iEntityId[client]))
 	{
 		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
 		return Plugin_Handled;
@@ -1346,7 +1346,7 @@ public Action Command_SHP(int client, int argc)
 
 public Action Command_AHP(int client, int argc)
 {
-	if(!IsValidEntity(g_iEntityId[client]))
+	if (!IsValidEntity(g_iEntityId[client]))
 	{
 		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
 		return Plugin_Handled;
