@@ -11,10 +11,6 @@
 #include <LagReducer>
 #include <multicolors>
 
-#undef REQUIRE_PLUGIN
-#tryinclude <DynamicChannels>
-#define REQUIRE_PLUGIN
-
 #pragma newdecls required
 
 #define MAX_TEXT_LENGTH	64
