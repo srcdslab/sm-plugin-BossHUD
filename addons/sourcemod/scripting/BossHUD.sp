@@ -26,7 +26,6 @@ ConVar g_cVStatsReward, g_cVBossHitMoney;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
 ConVar g_cVHudTimeout, g_cvHUDChannel;
 ConVar g_cVIgnoreFakeClients;
-ConVar g_cVHudHealthPercentageSquares;
 
 Cookie g_cShowHealth;
 
@@ -60,7 +59,6 @@ float g_fTimeout = 0.5;
 
 int g_iMinHealthDetect = 1000;
 int g_iMaxHealthDetect = 100000;
-int g_iSquareCount = 0;
 int g_iHUDChannel = 1;
 int g_iPlayersInTable = 3;
 
@@ -105,7 +103,6 @@ public void OnPluginStart()
 	g_cVHudPosition = CreateConVar("sm_bhud_position", "-1.0 0.09", "The X and Y position for the hud.");
 	g_cVHudColor = CreateConVar("sm_bhud_color", "255 0 0", "RGB color value for the hud.");
 	g_cVHudSymbols = CreateConVar("sm_bhud_symbols", "0", "Determines whether >> and << are wrapped around the text.", _, true, 0.0, true, 1.0);
-	g_cVHudHealthPercentageSquares = CreateConVar("sm_bhud_health_percentage_squares", "0", "Determines how much squares are displayed base on health percentage.", _, true, 0.0, true, 100.0);
 	g_cVDisplayType = CreateConVar("sm_bhud_displaytype", "2", "Display type of HUD. (0 = center, 1 = game, 2 = hint)", _, true, 0.0, true, 2.0);
 	g_cVHudMinHealth = CreateConVar("sm_bhud_health_min", "1000", "Determines what minimum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
 	g_cVHudMaxHealth = CreateConVar("sm_bhud_health_max", "100000", "Determines what maximum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
@@ -120,7 +117,6 @@ public void OnPluginStart()
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
 
-	g_cVHudHealthPercentageSquares.AddChangeHook(OnConVarChange);
 	g_cVHudMinHealth.AddChangeHook(OnConVarChange);
 	g_cVHudMaxHealth.AddChangeHook(OnConVarChange);
 	g_cVHudPosition.AddChangeHook(OnConVarChange);
@@ -406,14 +402,7 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 		if (iHPPercentage > 100) iHPPercentage = 100;
 		if (iHPPercentage <= 0) iHPPercentage = 0;
 
-		if (g_iSquareCount > 1)
-		{
-			char sPercentText[MAX_TEXT_LENGTH];
-			CreateHPIconPercent(iHPPercentage, g_iSquareCount, sPercentText, MAX_TEXT_LENGTH);
-			FormatLen += StrCat(sFormat, sizeof(sFormat), sPercentText);
-		}
-		else
-			FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
+		FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
 
 		char sFormatTemp[256], sFormatFinal[256];
 		FormatEx(sFormatTemp, sizeof(sFormatTemp), "[%dPERCENTAGE]", iHPPercentage);
@@ -532,26 +521,6 @@ public void LagReducer_OnClientGameFrame(int iClient)
 // ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ##
 // ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######
 
-public void CreateHPIconPercent(int hpPercent, int squareCount, char[] sText, int iSize)
-{
-	if (squareCount <= 1)
-		return;
-
-	int i = 0;
-	int howMuchHealthPerSquare = 100 / squareCount;
-	while (i < squareCount)
-	{
-		if (hpPercent > 0)
-		{
-			StrCat(sText, iSize, "⬛");
-			hpPercent = hpPercent - howMuchHealthPerSquare;
-		}
-		else
-			StrCat(sText, iSize, "⬜");
-		i++;
-	}
-}
-
 public void ColorStringToArray(const char[] sColorString, int aColor[3])
 {
 	char asColors[4][4];
@@ -593,7 +562,6 @@ public void GetConVars()
 
 	g_iMinHealthDetect = g_cVHudMinHealth.IntValue;
 	g_iMaxHealthDetect = g_cVHudMaxHealth.IntValue;
-	g_iSquareCount = g_cVHudHealthPercentageSquares.IntValue;
 	g_iHUDChannel = g_cvHUDChannel.IntValue;
 	g_bTopHitsTitle = g_cVTopHitsTitle.BoolValue;
 	g_iPlayersInTable = g_cVPlayersInTable.IntValue;
