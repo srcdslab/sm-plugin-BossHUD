@@ -972,19 +972,13 @@ void SendHudMsg(
 			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
 			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "%");
 
-			bool bDynamicAvailable = false;
 			int iHUDChannel = -1;
 
 			if (g_iHUDChannel < 0 || g_iHUDChannel > 6)
 				g_iHUDChannel = 1;
 
-			if (bDynamicAvailable)
-				ShowHudText(client, iHUDChannel, "%s", szMessageFinale);
-			else
-			{
-				ClearSyncHud(client, hHudSync);
-				ShowSyncHudText(client, hHudSync, "%s", szMessageFinale);
-			}
+			ClearSyncHud(client, hHudSync);
+			ShowSyncHudText(client, hHudSync, "%s", szMessageFinale);
 		}
 	}
 	else if (type == DISPLAY_HINT && !IsVoteInProgress())
