@@ -86,16 +86,14 @@ public void OnPluginStart()
 
 	g_cShowHealth = new Cookie("bhud_showhealth", "Toggle boss health display", CookieAccess_Private);
 
-	SetCookieMenuItem(CookieMenu_BHud, INVALID_HANDLE, "BHud Settings");
+	SetCookieMenuItem(CookieMenu_BHud, INVALID_HANDLE, "BossHUD Settings");
 
-	RegConsoleCmd("sm_bhud", Command_BHud, "Toggle BHud");
+	RegConsoleCmd("sm_bhud", Command_BHud, "Toggle boss health display");
+	RegConsoleCmd("sm_bosshud", Command_BHud, "Toggle boss health display");
 
 	RegAdminCmd("sm_currenthp", Command_CHP, ADMFLAG_GENERIC, "See Current HP");
 	RegAdminCmd("sm_subtracthp", Command_SHP, ADMFLAG_GENERIC, "Subtract Current HP");
 	RegAdminCmd("sm_addhp", Command_AHP, ADMFLAG_GENERIC, "Add Current HP");
-
-	RegConsoleCmd("sm_showhealth", Command_ShowHealth, "Toggle seeing boss health");
-	RegConsoleCmd("sm_showhp", Command_ShowHealth, "Toggle seeing boss health");
 
 	HookEntityOutput("func_physbox", "OnHealthChanged", Hook_OnDamage);
 	HookEntityOutput("func_physbox_multiplayer", "OnHealthChanged", Hook_OnDamage);
@@ -236,70 +234,21 @@ public void OnClientCookiesCached(int client)
 //  888   "   888 888        888   Y8888 Y88b. .d88P
 //  888       888 8888888888 888    Y888  "Y88888P"
 
-public void DisplayCookieMenu(int client)
-{
-	Menu menu = new Menu(MenuHandler_BHud, MENU_ACTIONS_DEFAULT | MenuAction_DisplayItem);
-	menu.ExitBackButton = true;
-	menu.ExitButton = true;
-	SetMenuTitle(menu, "Bhud Settings");
-	AddMenuItem(menu, NULL_STRING, "Show damage ");
-	AddMenuItem(menu, NULL_STRING, "Show health ");
-	DisplayMenu(menu, client, MENU_TIME_FOREVER);
-}
-
 public void CookieMenu_BHud(int client, CookieMenuAction action, any info, char[] buffer, int maxlen)
 {
-	switch(action)
+	switch (action)
 	{
+		case CookieMenuAction_DisplayOption:
+		{
+			FormatEx(buffer, maxlen, "Display boss health: %s", g_bShowHealth[client] ? "Enabled" : "Disabled");
+		}
 		case CookieMenuAction_SelectOption:
 		{
-			DisplayCookieMenu(client);
+			ToggleBhud(client);
+			ShowCookieMenu(client);
 		}
 	}
 }
-
-public int MenuHandler_BHud(Menu menu, MenuAction action, int param1, int param2)
-{
-	switch(action)
-	{
-		case MenuAction_End:
-		{
-			if (param1 != MenuEnd_Selected)
-				delete menu;
-		}
-		case MenuAction_Cancel:
-		{
-			if (param2 == MenuCancel_ExitBack)
-				ShowCookieMenu(param1);
-		}
-		case MenuAction_Select:
-		{
-			switch(param2)
-			{
-				case 0:
-				{
-					g_bShowHealth[param1] = !g_bShowHealth[param1];
-				}
-				default:return 0;
-			}
-			DisplayMenu(menu, param1, MENU_TIME_FOREVER);
-		}
-		case MenuAction_DisplayItem:
-		{
-			char buffer[32];
-			switch(param2)
-			{
-				case 0:
-				{
-					FormatEx(buffer, sizeof(buffer), "Show health: %s", (g_bShowHealth[param1]) ? "Enabled":"Disabled");
-				}
-			}
-			return RedrawMenuItem(buffer);
-		}
-	}
-	return 0;
-}
-
 
 // ##     ##  #######   #######  ##    ##  ######
 // ##     ## ##     ## ##     ## ##   ##  ##    ##
@@ -665,6 +614,12 @@ public void SetClientCookies(int client)
 	char sValue[8];
 	FormatEx(sValue, sizeof(sValue), "%i", g_bShowHealth[client]);
 	g_cShowHealth.Set(client, sValue);
+}
+
+public void ToggleBhud(int client)
+{
+	g_bShowHealth[client] = !g_bShowHealth[client];
+	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled");
 }
 
 bool CEntityRemove(int entity)
@@ -1164,14 +1119,7 @@ bool IsValidClient(int client, bool nobots = true)
 
 public Action Command_BHud(int client, int argc)
 {
-	DisplayCookieMenu(client);
-	return Plugin_Handled;
-}
-
-public Action Command_ShowHealth(int client, int args)
-{
-	g_bShowHealth[client] = !g_bShowHealth[client];
-	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled");
+	ToggleBhud(client);
 	return Plugin_Handled;
 }
 
