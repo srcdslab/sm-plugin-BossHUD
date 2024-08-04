@@ -56,14 +56,6 @@
 		"chi"		"停用"
 	}
 
-	"Show damage has been"
-	{
-		"en"		"Show damage has been"
-		"fr"		"Afficher les dégâts a été"
-		"zho"		"顯示對Boss的傷害"
-		"chi"		"显示对Boss的伤害"
-	}
-
 	"Show health has been"
 	{
 		"en"		"Show health has been"

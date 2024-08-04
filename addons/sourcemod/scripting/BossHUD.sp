@@ -25,23 +25,21 @@ ConVar g_cVTopHitsPos, g_cVTopHitsColor, g_cVTopHitsTitle, g_cVPlayersInTable;
 ConVar g_cVStatsReward, g_cVBossHitMoney;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
 ConVar g_cVHudTimeout, g_cvHUDChannel;
-ConVar g_cVIgnoreFakeClients, g_cVShowDamagePlayers;
-ConVar g_cVHudHealthPercentageSquares;
+ConVar g_cVIgnoreFakeClients;
 
-Handle g_hShowDmg = INVALID_HANDLE, g_hShowHealth = INVALID_HANDLE;
+Cookie g_cShowHealth;
+
 Handle g_hHudSync = INVALID_HANDLE, g_hHudTopHitsSync = INVALID_HANDLE, g_hTimerHudMsgAll = INVALID_HANDLE;
 
 StringMap g_smBossMap = null;
 ArrayList g_aEntity = null;
 
-bool g_bShowDmg[MAXPLAYERS + 1] =  { true, ... };
 bool g_bShowHealth[MAXPLAYERS + 1] =  { true, ... };
 bool g_bHudSymbols;
 bool g_bTopHitsTitle = true;
 bool g_bBossHitMoney = true;
 bool g_bStatsReward = false;
 bool g_bIgnoreFakeClients = true;
-bool g_bShowDamagePlayers = true;
 
 int g_iEntityId[MAXPLAYERS+1] = { -1, ... };
 int g_iHudColor[3], g_iTopHitsColor[3];
@@ -49,7 +47,6 @@ int g_iHudColor[3], g_iTopHitsColor[3];
 float g_fHudPos[2], g_fTopHitsPos[2];
 
 bool g_bLate = false;
-bool g_bIsCSGO = false;
 bool g_bDynamicChannels = false;
 
 char g_sHUDText[256];
@@ -62,7 +59,6 @@ float g_fTimeout = 0.5;
 
 int g_iMinHealthDetect = 1000;
 int g_iMaxHealthDetect = 100000;
-int g_iSquareCount = 0;
 int g_iHUDChannel = 1;
 int g_iPlayersInTable = 3;
 
@@ -72,13 +68,12 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.6.8",
+	version = "3.7",
 	url = "antiteal.com"
 };
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-	g_bIsCSGO = (GetEngineVersion() == Engine_CSGO);
 	g_bLate = late;
 	return APLRes_Success;
 }
@@ -87,34 +82,27 @@ public void OnPluginStart()
 {
 	LoadTranslations("BossHUD.phrases");
 
-	g_hShowDmg = RegClientCookie("bhud_showdamage", "Enable/Disable show damage", CookieAccess_Private);
-	g_hShowHealth = RegClientCookie("bhud_showhealth", "Enabled/Disable show health", CookieAccess_Private);
+	g_cShowHealth = new Cookie("bhud_showhealth", "Toggle boss health display", CookieAccess_Private);
 
-	SetCookieMenuItem(CookieMenu_BHud, INVALID_HANDLE, "BHud Settings");
+	SetCookieMenuItem(CookieMenu_BHud, INVALID_HANDLE, "BossHUD Settings");
 
-	RegConsoleCmd("sm_bhud", Command_BHud, "Toggle BHud");
+	RegConsoleCmd("sm_bhud", Command_BHud, "Toggle boss health display");
+	RegConsoleCmd("sm_bosshud", Command_BHud, "Toggle boss health display");
 
 	RegAdminCmd("sm_currenthp", Command_CHP, ADMFLAG_GENERIC, "See Current HP");
 	RegAdminCmd("sm_subtracthp", Command_SHP, ADMFLAG_GENERIC, "Subtract Current HP");
 	RegAdminCmd("sm_addhp", Command_AHP, ADMFLAG_GENERIC, "Add Current HP");
-
-	RegConsoleCmd("sm_showdamage", Command_ShowDamage, "Toggle seeing boss damages inflicted");
-	RegConsoleCmd("sm_showdmg", Command_ShowDamage, "Toggle seeing boss damages inflicted");
-	RegConsoleCmd("sm_showhealth", Command_ShowHealth, "Toggle seeing boss health");
-	RegConsoleCmd("sm_showhp", Command_ShowHealth, "Toggle seeing boss health");
 
 	HookEntityOutput("func_physbox", "OnHealthChanged", Hook_OnDamage);
 	HookEntityOutput("func_physbox_multiplayer", "OnHealthChanged", Hook_OnDamage);
 	HookEntityOutput("func_breakable", "OnHealthChanged", Hook_OnDamage);
 	HookEntityOutput("math_counter", "OutValue", Hook_OnDamage);
 
-	HookEvent("player_hurt", Event_PlayerHurt, EventHookMode_Pre);
 	HookEvent("round_end", Event_OnRoundEnd, EventHookMode_PostNoCopy);
 
 	g_cVHudPosition = CreateConVar("sm_bhud_position", "-1.0 0.09", "The X and Y position for the hud.");
 	g_cVHudColor = CreateConVar("sm_bhud_color", "255 0 0", "RGB color value for the hud.");
 	g_cVHudSymbols = CreateConVar("sm_bhud_symbols", "0", "Determines whether >> and << are wrapped around the text.", _, true, 0.0, true, 1.0);
-	g_cVHudHealthPercentageSquares = CreateConVar("sm_bhud_health_percentage_squares", "0", "Determines how much squares are displayed base on health percentage.", _, true, 0.0, true, 100.0);
 	g_cVDisplayType = CreateConVar("sm_bhud_displaytype", "2", "Display type of HUD. (0 = center, 1 = game, 2 = hint)", _, true, 0.0, true, 2.0);
 	g_cVHudMinHealth = CreateConVar("sm_bhud_health_min", "1000", "Determines what minimum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
 	g_cVHudMaxHealth = CreateConVar("sm_bhud_health_max", "100000", "Determines what maximum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
@@ -128,9 +116,7 @@ public void OnPluginStart()
 	g_cVBossHitMoney = CreateConVar("sm_bhud_tophits_money", "1", "Enable/Disable payment of boss hits", _, true, 0.0, true, 1.0);
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
-	g_cVShowDamagePlayers = CreateConVar("sm_bhud_showdamage_players", "1", "Enable/Disable showing damage to players.", _, true, 0.0, true, 1.0);
 
-	g_cVHudHealthPercentageSquares.AddChangeHook(OnConVarChange);
 	g_cVHudMinHealth.AddChangeHook(OnConVarChange);
 	g_cVHudMaxHealth.AddChangeHook(OnConVarChange);
 	g_cVHudPosition.AddChangeHook(OnConVarChange);
@@ -146,7 +132,6 @@ public void OnPluginStart()
 	g_cVBossHitMoney.AddChangeHook(OnConVarChange);
 	g_cVStatsReward.AddChangeHook(OnConVarChange);
 	g_cVIgnoreFakeClients.AddChangeHook(OnConVarChange);
-	g_cVShowDamagePlayers.AddChangeHook(OnConVarChange);
 
 	AutoExecConfig(true);
 	GetConVars();
@@ -158,7 +143,7 @@ public void OnPluginStart()
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
-			if(IsClientConnected(i))
+			if (IsClientConnected(i))
 			{
 				OnClientPutInServer(i);
 			}
@@ -169,20 +154,31 @@ public void OnPluginStart()
 public void OnAllPluginsLoaded()
 {
 	g_bDynamicChannels = LibraryExists("DynamicChannels");
+	VerifyNatives();
 }
 
 public void OnLibraryAdded(const char[] name)
 {
 	if (strcmp(name, "DynamicChannels", false) == 0)
+	{
 		g_bDynamicChannels = true;
+		VerifyNatives();
+	}
 }
 
 public void OnLibraryRemoved(const char[] name)
 {
 	if (strcmp(name, "DynamicChannels", false) == 0)
+	{
 		g_bDynamicChannels = false;
+		VerifyNatives();
+	}
 }
 
+stock void VerifyNatives()
+{
+	bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
+}
 public void OnPluginEnd()
 {
 	// Late unload
@@ -190,7 +186,7 @@ public void OnPluginEnd()
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
-			if(IsClientConnected(i))
+			if (IsClientConnected(i))
 			{
 				OnClientDisconnect(i);
 			}
@@ -211,41 +207,9 @@ public void OnClientDisconnect(int client)
 	SetClientCookies(client);
 }
 
-public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast) 
-{ 
-	CleanupAndInit();
-}
-
-public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
+public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
-	if (!g_bShowDamagePlayers)
-		return;
-
-	int client = GetClientOfUserId(GetEventInt(event, "userid"));
-	if (!IsValidClient(client, g_bIgnoreFakeClients) || GetClientTeam(client) != CS_TEAM_T)
-		return;
-
-	int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
-	if (!IsValidClient(attacker, g_bIgnoreFakeClients))
-		return;
-
-	int dmg = -GetEventInt(event, "dmg_health");
-	int hp = GetEventInt(event, "health") + dmg;
-
-	if(g_bShowHealth[attacker])
-	{
-		char szMessage[128] = "Dead";
-		if(hp > 0)
-			IntToString(hp, szMessage, sizeof(szMessage));
-		Format(szMessage, sizeof(szMessage), "%N: %s", client, szMessage);
-		SendHudMsg(attacker, szMessage, g_iDisplayType);
-	}
-	if(g_bShowDmg[attacker])
-	{
-		char szMessage[128];
-		Format(szMessage, sizeof(szMessage), "%i HP", dmg);
-		SendHudMsg(attacker, szMessage);
-	}
+	CleanupAndInit();
 }
 
 public void OnConVarChange(ConVar convar, char[] oldValue, char[] newValue)
@@ -277,86 +241,29 @@ public void OnClientCookiesCached(int client)
 //  888   "   888 888        888   Y8888 Y88b. .d88P
 //  888       888 8888888888 888    Y888  "Y88888P"
 
-public void DisplayCookieMenu(int client)
-{
-	Menu menu = new Menu(MenuHandler_BHud, MENU_ACTIONS_DEFAULT | MenuAction_DisplayItem);
-	menu.ExitBackButton = true;
-	menu.ExitButton = true;
-	SetMenuTitle(menu, "Bhud Settings");
-	AddMenuItem(menu, NULL_STRING, "Show damage ");
-	AddMenuItem(menu, NULL_STRING, "Show health ");
-	DisplayMenu(menu, client, MENU_TIME_FOREVER);
-}
-
 public void CookieMenu_BHud(int client, CookieMenuAction action, any info, char[] buffer, int maxlen)
 {
-	switch(action)
+	switch (action)
 	{
+		case CookieMenuAction_DisplayOption:
+		{
+			FormatEx(buffer, maxlen, "Display boss health: %s", g_bShowHealth[client] ? "Enabled" : "Disabled");
+		}
 		case CookieMenuAction_SelectOption:
 		{
-			DisplayCookieMenu(client);
+			ToggleBhud(client);
+			ShowCookieMenu(client);
 		}
 	}
 }
 
-public int MenuHandler_BHud(Menu menu, MenuAction action, int param1, int param2)
-{
-	switch(action)
-	{
-		case MenuAction_End:
-		{
-			if(param1 != MenuEnd_Selected)
-				delete menu;
-		}
-		case MenuAction_Cancel:
-		{
-			if(param2 == MenuCancel_ExitBack)
-				ShowCookieMenu(param1);
-		}
-		case MenuAction_Select:
-		{
-			switch(param2)
-			{
-				case 0:
-				{
-					g_bShowDmg[param1] = !g_bShowDmg[param1];
-				}
-				case 1:
-				{
-					g_bShowHealth[param1] = !g_bShowHealth[param1];
-				}
-				default:return 0;
-			}
-			DisplayMenu(menu, param1, MENU_TIME_FOREVER);
-		}
-		case MenuAction_DisplayItem:
-		{
-			char buffer[32];
-			switch(param2)
-			{
-				case 0:
-				{
-					FormatEx(buffer, sizeof(buffer), "Show damage: %s", (g_bShowDmg[param1]) ? "Enabled":"Disabled");
-				}
-				case 1:
-				{
-					FormatEx(buffer, sizeof(buffer), "Show health: %s", (g_bShowHealth[param1]) ? "Enabled":"Disabled");
-				}
-			}
-			return RedrawMenuItem(buffer);
-		}
-	}
-	return 0;
-}
-
-
-// ##     ##  #######   #######  ##    ##  ######  
-// ##     ## ##     ## ##     ## ##   ##  ##    ## 
-// ##     ## ##     ## ##     ## ##  ##   ##       
-// ######### ##     ## ##     ## #####     ######  
-// ##     ## ##     ## ##     ## ##  ##         ## 
-// ##     ## ##     ## ##     ## ##   ##  ##    ## 
-// ##     ##  #######   #######  ##    ##  ######  
+// ##     ##  #######   #######  ##    ##  ######
+// ##     ## ##     ## ##     ## ##   ##  ##    ##
+// ##     ## ##     ## ##     ## ##  ##   ##
+// ######### ##     ## ##     ## #####     ######
+// ##     ## ##     ## ##     ## ##  ##         ##
+// ##     ## ##     ## ##     ## ##   ##  ##    ##
+// ##     ##  #######   #######  ##    ##  ######
 
 public void Hook_OnDamage(const char[] output, int caller, int activator, float delay)
 {
@@ -401,7 +308,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 			iHits[activator]++;
 		}
 
-		if(g_bBossHitMoney)
+		if (g_bBossHitMoney)
 		{
 			int cash = GetClientMoney(activator);
 			SetClientMoney(activator, ++cash);
@@ -486,7 +393,7 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 	if (fTimeout < 0.0 || fGameTime - fLastChange < fTimeout)
 	{
 		char sFormat[MAX_TEXT_LENGTH];
-		if(g_sHUDText[0])
+		if (g_sHUDText[0])
 		{
 			sFormat[0] = '\n';
 			_Config.GetName(sFormat[1], sizeof(sFormat) - 1);
@@ -506,14 +413,7 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 		if (iHPPercentage > 100) iHPPercentage = 100;
 		if (iHPPercentage <= 0) iHPPercentage = 0;
 
-		if (g_iSquareCount > 1)
-		{
-			char sPercentText[MAX_TEXT_LENGTH];
-			CreateHPIconPercent(iHPPercentage, g_iSquareCount, sPercentText, MAX_TEXT_LENGTH);
-			FormatLen += StrCat(sFormat, sizeof(sFormat), sPercentText);
-		}
-		else
-			FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
+		FormatLen += IntToString(iHealth, sFormat[FormatLen], sizeof(sFormat) - FormatLen);
 
 		char sFormatTemp[256], sFormatFinal[256];
 		FormatEx(sFormatTemp, sizeof(sFormatTemp), "[%dPERCENTAGE]", iHPPercentage);
@@ -621,39 +521,16 @@ public void LagReducer_OnStartGameFrame()
 public void LagReducer_OnClientGameFrame(int iClient)
 {
 	if (g_sHUDTextSave[0] && IsValidClient(iClient) && g_bShowHealth[iClient])
-	{
-		if (IsValidClient(iClient) && g_bShowHealth[iClient])
-			SendHudMsg(iClient, g_sHUDTextSave, g_iDisplayType, INVALID_HANDLE, g_iHudColor, g_fHudPos, 3.0, 255);
-	}
+		SendHudMsg(iClient, g_sHUDTextSave, g_iDisplayType, INVALID_HANDLE, g_iHudColor, g_fHudPos, 3.0, 255);
 }
 
-// ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######  
-// ##       ##     ## ###   ## ##    ##    ##     ##  ##     ## ###   ## ##    ## 
-// ##       ##     ## ####  ## ##          ##     ##  ##     ## ####  ## ##       
-// ######   ##     ## ## ## ## ##          ##     ##  ##     ## ## ## ##  ######  
-// ##       ##     ## ##  #### ##          ##     ##  ##     ## ##  ####       ## 
-// ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ## 
+// ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######
+// ##       ##     ## ###   ## ##    ##    ##     ##  ##     ## ###   ## ##    ##
+// ##       ##     ## ####  ## ##          ##     ##  ##     ## ####  ## ##
+// ######   ##     ## ## ## ## ##          ##     ##  ##     ## ## ## ##  ######
+// ##       ##     ## ##  #### ##          ##     ##  ##     ## ##  ####       ##
+// ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ##
 // ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######
-
-public void CreateHPIconPercent(int hpPercent, int squareCount, char[] sText, int iSize)
-{
-	if (squareCount <= 1)
-		return;
-
-	int i = 0;
-	int howMuchHealthPerSquare = 100 / squareCount;
-	while (i < squareCount)
-	{
-		if (hpPercent > 0)
-		{
-			StrCat(sText, iSize, "⬛");
-			hpPercent = hpPercent - howMuchHealthPerSquare;
-		}
-		else
-			StrCat(sText, iSize, "⬜");
-		i++;
-	}
-}
 
 public void ColorStringToArray(const char[] sColorString, int aColor[3])
 {
@@ -696,37 +573,32 @@ public void GetConVars()
 
 	g_iMinHealthDetect = g_cVHudMinHealth.IntValue;
 	g_iMaxHealthDetect = g_cVHudMaxHealth.IntValue;
-	g_iSquareCount = g_cVHudHealthPercentageSquares.IntValue;
 	g_iHUDChannel = g_cvHUDChannel.IntValue;
 	g_bTopHitsTitle = g_cVTopHitsTitle.BoolValue;
 	g_iPlayersInTable = g_cVPlayersInTable.IntValue;
 	g_bBossHitMoney = g_cVBossHitMoney.BoolValue;
 	g_bStatsReward = g_cVStatsReward.BoolValue;
 	g_bIgnoreFakeClients = g_cVIgnoreFakeClients.BoolValue;
-	g_bShowDamagePlayers = g_cVShowDamagePlayers.BoolValue;
-
 }
 
 public void ReadClientCookies(int client)
 {
 	char sValue[8];
-
-	GetClientCookie(client, g_hShowDmg, sValue, sizeof(sValue));
-	g_bShowDmg[client] = (sValue[0] == '\0' ? true : StringToInt(sValue) == 1);
-
-	GetClientCookie(client, g_hShowHealth, sValue, sizeof(sValue));
-	g_bShowHealth[client] = (sValue[0] == '\0' ? true : StringToInt(sValue) == 1);
+	g_cShowHealth.Get(client, sValue, sizeof(sValue));
+	g_bShowHealth[client] = (sValue[0] == '\0' ? true : view_as<bool>(StringToInt(sValue)));
 }
 
 public void SetClientCookies(int client)
 {
 	char sValue[8];
-
-	FormatEx(sValue, sizeof(sValue), "%i", g_bShowDmg[client]);
-	SetClientCookie(client, g_hShowDmg, sValue);
-
 	FormatEx(sValue, sizeof(sValue), "%i", g_bShowHealth[client]);
-	SetClientCookie(client, g_hShowHealth, sValue);
+	g_cShowHealth.Set(client, sValue);
+}
+
+public void ToggleBhud(int client)
+{
+	g_bShowHealth[client] = !g_bShowHealth[client];
+	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled");
 }
 
 bool CEntityRemove(int entity)
@@ -789,7 +661,7 @@ void ProcessEntitySpawned(int entity)
 
 void ProcessEntityDestroyed(int entity)
 {
-	if(IsValidEntity(entity))
+	if (IsValidEntity(entity))
 	{
 		char szName[64];
 		GetEntityName(entity, szName);
@@ -849,8 +721,7 @@ void Cleanup(bool bPluginEnd = false)
 
 	if (bPluginEnd)
 	{
-		delete g_hShowDmg;
-		delete g_hShowHealth;
+		delete g_cShowHealth;
 		delete g_cVHudPosition;
 		delete g_cVHudColor;
 		delete g_cVHudSymbols;
@@ -1022,7 +893,7 @@ void SendHudMsg(
 	int iTransparency = 255
 )
 {
-	if(type == DISPLAY_GAME)
+	if (type == DISPLAY_GAME)
 	{
 		if (hHudSync == INVALID_HANDLE && g_hHudSync != INVALID_HANDLE)
 			hHudSync = g_hHudSync;
@@ -1040,8 +911,6 @@ void SendHudMsg(
 			if (g_iHUDChannel < 0 || g_iHUDChannel > 6)
 				g_iHUDChannel = 1;
 
-			bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
-
 		#if defined _DynamicChannels_included_
 			if (bDynamicAvailable)
 				iHUDChannel = GetDynamicChannel(g_iHUDChannel);
@@ -1058,68 +927,17 @@ void SendHudMsg(
 	}
 	else if (type == DISPLAY_HINT && !IsVoteInProgress())
 	{
-		if (g_bIsCSGO)
-		{
-			int rgb;
-			rgb |= ((g_iHudColor[0] & 0xFF) << 16);
-			rgb |= ((g_iHudColor[1] & 0xFF) << 8 );
-			rgb |= ((g_iHudColor[2] & 0xFF) << 0 );
-			ReplaceString(szMessage, 256, "\n", "<br/>");
-			PrintHintTextRGB(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
-		}
-		else
-		{
-			char szMessageFinale[512];
-			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
-			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%%");
-			PrintHintText(client, "%s", szMessageFinale);
-		}
+		char szMessageFinale[512];
+		FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
+		ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%%");
+		PrintHintText(client, "%s", szMessageFinale);
 	}
 	else
 	{
-		if (g_bIsCSGO)
-		{
-			int rgb;
-			rgb |= ((g_iHudColor[0] & 0xFF) << 16);
-			rgb |= ((g_iHudColor[1] & 0xFF) << 8 );
-			rgb |= ((g_iHudColor[2] & 0xFF) << 0 );
-			ReplaceString(szMessage, 256, "\n", "<br/>");
-			PrintCenterText(client, "<font color='#%06X'>%s</font>", rgb, szMessage);
-		}
-		else
-		{
-			char szMessageFinale[512];
-			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
-			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%");
-			PrintCenterText(client, "%s", szMessageFinale);
-		}
-	}
-}
-
-stock void PrintHintTextRGB(int client, const char[] format, any ...)
-{
-	char buff[2048];
-	VFormat(buff, sizeof(buff), format, 3);
-	FormatEx(buff, sizeof(buff), "</font>%s ", buff);
-
-	for(int i = strlen(buff); i < sizeof(buff); i++)
-	{
-		buff[i] = ' ';
-	}
-
-	Handle hMessage = StartMessageOne("TextMsg", client, USERMSG_RELIABLE);
-	
-	if(hMessage != INVALID_HANDLE)
-	{
-		PbSetInt(hMessage, "msg_dst", 4);
-		PbAddString(hMessage, "params", "#SFUI_ContractKillStart");
-		PbAddString(hMessage, "params", buff);
-		PbAddString(hMessage, "params", NULL_STRING);
-		PbAddString(hMessage, "params", NULL_STRING);
-		PbAddString(hMessage, "params", NULL_STRING);
-		PbAddString(hMessage, "params", NULL_STRING);
-		
-		EndMessage();
+		char szMessageFinale[512];
+		FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
+		ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "\%");
+		PrintCenterText(client, "%s", szMessageFinale);
 	}
 }
 
@@ -1127,17 +945,17 @@ public void BuildName(CBoss boss, char[] szName, int maxlen)
 {
 	CConfig config = boss.dConfig;
 	config.GetName(szName, maxlen);
-	if(config.IsBreakable)
+	if (config.IsBreakable)
 	{
 		CBossBreakable _boss = view_as<CBossBreakable>(boss);
 		FormatEx(szName, maxlen, "%s%i", szName, _boss.iBreakableEnt);
 	}
-	else if(config.IsCounter)
+	else if (config.IsCounter)
 	{
 		CBossCounter _boss = view_as<CBossCounter>(boss);
 		FormatEx(szName, maxlen, "%s%i", szName, _boss.iCounterEnt);
 	}
-	else if(config.IsHPBar)
+	else if (config.IsHPBar)
 	{
 		CBossHPBar _boss = view_as<CBossHPBar>(boss);
 		FormatEx(szName, maxlen, "%s%i", szName, _boss.iBackupEnt);
@@ -1207,7 +1025,7 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 		StringToUpperCase(sTitle);
 		StringToUpperCase(sDamageUpper);
 		StringToUpperCase(sHitsUpper);
-	
+
 		FormatEx(szMessage, len, "%s %s [%s]\n", sTitle, IsBreakable ? sDamageUpper : sHitsUpper, szName);
 	}
 	else
@@ -1234,14 +1052,14 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 
 public int GetClientMoney(int client)
 {
-	if(IsValidClient(client))
+	if (IsValidClient(client))
 		return GetEntProp(client, Prop_Send, "m_iAccount");
 	return -1;
 }
 
 public bool SetClientMoney(int client, int money)
 {
-	if(IsValidClient(client))
+	if (IsValidClient(client))
 	{
 		SetEntProp(client, Prop_Send, "m_iAccount", money);
 		return true;
@@ -1251,10 +1069,10 @@ public bool SetClientMoney(int client, int money)
 
 stock void StringToUpperCase(char[] input)
 {
-    for (int i = 0; i < strlen(input); i++)
-    {
-        input[i] = CharToUpper(input[i]);
-    }
+	for (int i = 0; i < strlen(input); i++)
+	{
+		input[i] = CharToUpper(input[i]);
+	}
 }
 
 bool IsValidClient(int client, bool nobots = true)
@@ -1278,25 +1096,7 @@ bool IsValidClient(int client, bool nobots = true)
 
 public Action Command_BHud(int client, int argc)
 {
-	DisplayCookieMenu(client);
-	return Plugin_Handled;
-}
-
-public Action Command_ShowDamage(int client, int args)
-{
-	char sEnabled[32], sDisabled[32];
-	FormatEx(sEnabled, sizeof(sEnabled), "%T", "Enabled", client);
-	FormatEx(sDisabled, sizeof(sDisabled), "%T", "Disabled", client);
-
-	g_bShowDmg[client] = !g_bShowDmg[client];
-	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show damage has been", client, g_bShowDmg[client] ? sEnabled : sDisabled);
-	return Plugin_Handled;
-}
-
-public Action Command_ShowHealth(int client, int args)
-{
-	g_bShowHealth[client] = !g_bShowHealth[client];
-	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled");
+	ToggleBhud(client);
 	return Plugin_Handled;
 }
 
@@ -1320,7 +1120,7 @@ public Action Command_CHP(int client, int argc)
 
 public Action Command_SHP(int client, int argc)
 {
-	if(!IsValidEntity(g_iEntityId[client]))
+	if (!IsValidEntity(g_iEntityId[client]))
 	{
 		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
 		return Plugin_Handled;
@@ -1346,7 +1146,7 @@ public Action Command_SHP(int client, int argc)
 
 public Action Command_AHP(int client, int argc)
 {
-	if(!IsValidEntity(g_iEntityId[client]))
+	if (!IsValidEntity(g_iEntityId[client]))
 	{
 		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
 		return Plugin_Handled;
