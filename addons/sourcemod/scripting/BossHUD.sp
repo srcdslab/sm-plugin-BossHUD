@@ -48,6 +48,7 @@ float g_fHudPos[2], g_fTopHitsPos[2];
 
 bool g_bLate = false;
 bool g_bDynamicChannels = false;
+bool bDynamicAvailable = false;
 
 char g_sHUDText[256];
 char g_sHUDTextSave[256];
@@ -179,6 +180,7 @@ stock void VerifyNatives()
 {
 	bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
 }
+
 public void OnPluginEnd()
 {
 	// Late unload
@@ -905,7 +907,6 @@ void SendHudMsg(
 			FormatEx(szMessageFinale, sizeof(szMessageFinale), "%s", szMessage);
 			ReplaceString(szMessageFinale,sizeof(szMessageFinale), "PERCENTAGE", "%");
 
-			bool bDynamicAvailable = false;
 			int iHUDChannel = -1;
 
 			if (g_iHUDChannel < 0 || g_iHUDChannel > 6)
