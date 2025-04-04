@@ -8,7 +8,6 @@
 #include <BossHP>
 #include <loghelper>
 #include <BossHUD>
-#include <LagReducer>
 #include <multicolors>
 
 #undef REQUIRE_PLUGIN
@@ -26,6 +25,7 @@ ConVar g_cVStatsReward, g_cVBossHitMoney;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
 ConVar g_cVHudTimeout, g_cvHUDChannel;
 ConVar g_cVIgnoreFakeClients;
+ConVar g_cVFramesToSkip;
 
 Cookie g_cShowHealth;
 
@@ -62,6 +62,7 @@ int g_iMinHealthDetect = 1000;
 int g_iMaxHealthDetect = 100000;
 int g_iHUDChannel = 1;
 int g_iPlayersInTable = 3;
+int g_iFramesToSkip = 7;
 
 DisplayType g_iDisplayType;
 
@@ -117,6 +118,7 @@ public void OnPluginStart()
 	g_cVBossHitMoney = CreateConVar("sm_bhud_tophits_money", "1", "Enable/Disable payment of boss hits", _, true, 0.0, true, 1.0);
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
+	g_cVFramesToSkip = CreateConVar("sm_bhud_frame_to_skip", "7", "Number of frames to skip before displaying the HUD.", _, true, 0.0, true, 66.0);
 
 	g_cVHudMinHealth.AddChangeHook(OnConVarChange);
 	g_cVHudMaxHealth.AddChangeHook(OnConVarChange);
@@ -133,6 +135,7 @@ public void OnPluginStart()
 	g_cVBossHitMoney.AddChangeHook(OnConVarChange);
 	g_cVStatsReward.AddChangeHook(OnConVarChange);
 	g_cVIgnoreFakeClients.AddChangeHook(OnConVarChange);
+	g_cVFramesToSkip.AddChangeHook(OnConVarChange);
 
 	AutoExecConfig(true);
 	GetConVars();
@@ -370,7 +373,7 @@ public void BossHP_OnBossDead(CBoss boss)
 	{
 		for (int i = 0; i < tophitlen; i++)
 		{
-			LogPlayerEvent(TopHits[i][0], "triggered", i == 0 ? "top_boss_dmg" : (i == 1 ? "second_boss_dmg" : (i == 2 ? "third_boss_dmg" : "super_boss_dmg")));
+			LogPlayerEvent(TopHits[i], "triggered", i == 0 ? "top_boss_dmg" : (i == 1 ? "second_boss_dmg" : (i == 2 ? "third_boss_dmg" : "super_boss_dmg")));
 		}
 	}
 }
@@ -469,7 +472,7 @@ public void OnEntityDestroyed(int entity)
 	SDKUnhook(entity, SDKHook_SpawnPost, OnEntitySpawnedPost);
 }
 
-public void LagReducer_OnStartGameFrame()
+public void PrepareBossHUD()
 {
 	if (g_bLastBossHudPrinted)
 		g_sHUDText[0] = 0;
@@ -520,10 +523,32 @@ public void LagReducer_OnStartGameFrame()
 	}
 }
 
-public void LagReducer_OnClientGameFrame(int iClient)
+public void OnGameFrame()
 {
-	if (g_sHUDTextSave[0] && IsValidClient(iClient) && g_bShowHealth[iClient])
-		SendHudMsg(iClient, g_sHUDTextSave, g_iDisplayType, INVALID_HANDLE, g_iHudColor, g_fHudPos, 3.0, 255);
+	static int iFrame = 0;
+	iFrame++;
+
+	if (iFrame % g_iFramesToSkip != 0)
+		return;
+
+	PrepareBossHUD();
+
+	if (g_sHUDText[0] == '\0')
+		return;
+
+	for (int client = 1; client <= MaxClients; client++)
+	{
+		if (!IsClientInGame(client))
+			continue;
+		if (IsFakeClient(client))
+			continue;
+		if (!g_bShowHealth[client])
+			continue;
+		
+		SendHudMsg(client, g_sHUDTextSave, g_iDisplayType, INVALID_HANDLE, g_iHudColor, g_fHudPos, 3.0, 255);
+	}
+
+	iFrame = 0;
 }
 
 // ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######
@@ -581,6 +606,7 @@ public void GetConVars()
 	g_bBossHitMoney = g_cVBossHitMoney.BoolValue;
 	g_bStatsReward = g_cVStatsReward.BoolValue;
 	g_bIgnoreFakeClients = g_cVIgnoreFakeClients.BoolValue;
+	g_iFramesToSkip = g_cVFramesToSkip.IntValue;
 }
 
 public void ReadClientCookies(int client)
@@ -630,6 +656,9 @@ void ProcessEntitySpawned(int entity)
 	char classname[64];
 	GetEntityClassname(entity, classname, sizeof(classname));
 
+	if (!IsTrackedEntityClass(classname))
+		return;
+
 	int iHealth = GetEntityHealth(entity);
 	if (iHealth <= g_iMinHealthDetect || iHealth >= g_iMaxHealthDetect)
 		return;
@@ -663,20 +692,16 @@ void ProcessEntitySpawned(int entity)
 
 void ProcessEntityDestroyed(int entity)
 {
-	if (IsValidEntity(entity))
-	{
-		char szName[64];
-		GetEntityName(entity, szName);
+	if (!IsValidEntity(entity))
+		return;
 
-		char classname[64];
-		GetEntityClassname(entity, classname, sizeof(classname));
+	char classname[64];
+	GetEntityClassname(entity, classname, sizeof(classname));
 
-		if (strcmp(classname, "math_counter", false) == 0 || strcmp(classname, "func_physbox", false) == 0
-			|| strcmp(classname, "func_physbox_multiplayer", false) == 0 || strcmp(classname, "func_breakable", false) == 0)
-		{
-			CEntityRemove(entity);
-		}
-	}
+	if (!IsTrackedEntityClass(classname))
+		return;
+
+	CEntityRemove(entity);
 }
 
 public void CleanupAndInit()
@@ -757,28 +782,15 @@ int GetEntityHealth(int entity, CEntity _Entity = null)
 		if (offset == -1)
 			offset = FindDataMapInfo(entity, "m_OutValue");
 
-		health = RoundFloat(GetEntDataFloat(entity, offset));
-
-		char szName[64];
-		GetEntPropString(entity, Prop_Data, "m_iName", szName, sizeof(szName));
-
-		if (_Entity == null && g_aEntity)
-		{
-			int i = 0;
-			while (i < g_aEntity.Length)
-			{
-				_Entity = g_aEntity.Get(i);
-				if (_Entity.iIndex == entity)
-					break;
-				i++;
-			}
-			if (i >= g_aEntity.Length)
-				_Entity = null;
-		}
-
-		int max;
-		if (_Entity != null && max != _Entity.iMaxHealth)
-			health = RoundFloat(GetEntPropFloat(entity, Prop_Data, "m_flMax")) - health;
+		float rawValue = GetEntDataFloat(entity, offset);
+		float maxValue = GetEntPropFloat(entity, Prop_Data, "m_flMax");
+		
+		if (_Entity != null) // If the entity is in our list, use its stored health value
+			health = _Entity.iHealth;
+		else if (maxValue > 0) // Health is the difference between max and current value
+			health = RoundFloat(maxValue - rawValue);
+		else // If maxValue is 0, use rawValue directly as health
+			health = RoundFloat(rawValue);
 	}
 	else
 	{
@@ -1216,4 +1228,10 @@ int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
 		AcceptEntityInput(entity, sValue, client, client);
 	}
 	return health;
+}
+
+bool IsTrackedEntityClass(const char[] classname)
+{
+	return strcmp(classname, "func_physbox", false) == 0 || strcmp(classname, "func_physbox_multiplayer", false) == 0 || 
+		strcmp(classname, "func_breakable", false) == 0 || strcmp(classname, "math_counter", false) == 0;
 }
