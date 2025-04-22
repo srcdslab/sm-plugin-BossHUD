@@ -70,7 +70,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.7",
+	version = "3.7.1",
 	url = "antiteal.com"
 };
 
@@ -410,8 +410,13 @@ public void BossHP_OnBossProcessed(CBoss _Boss, bool bHealthChanged, bool bShow)
 		sFormat[FormatLen++] = ':';
 		sFormat[FormatLen++] = ' ';
 
+		// Update the base health of the boss if the current health is greater than the base health
+		// That will allow to show the correct percentage of the boss health
 		if (iHealth > iBaseHealth)
+		{
+			_Boss.iBaseHealth = iHealth;
 			iBaseHealth = iHealth;
+		}
 
 		int iHPPercentage = RoundToCeil((float(iHealth) / float(iBaseHealth)) * 100.0);
 
