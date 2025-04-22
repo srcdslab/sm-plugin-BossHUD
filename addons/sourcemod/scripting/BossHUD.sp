@@ -21,7 +21,7 @@
 ConVar g_cVHudPosition, g_cVHudColor, g_cVHudSymbols;
 ConVar g_cVDisplayType;
 ConVar g_cVTopHitsPos, g_cVTopHitsColor, g_cVTopHitsTitle, g_cVPlayersInTable;
-ConVar g_cVStatsReward, g_cVBossHitMoney;
+ConVar g_cVStatsReward, g_cVBossHitMoney, g_cvBossDeathNotice;
 ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
 ConVar g_cVHudTimeout, g_cvHUDChannel;
 ConVar g_cVIgnoreFakeClients;
@@ -39,7 +39,9 @@ bool g_bHudSymbols;
 bool g_bTopHitsTitle = true;
 bool g_bBossHitMoney = true;
 bool g_bStatsReward = false;
+bool g_bBossDeathNotice = true;
 bool g_bIgnoreFakeClients = true;
+bool g_bHookMessagesDeathNotice = false;
 
 int g_iEntityId[MAXPLAYERS+1] = { -1, ... };
 int g_iHudColor[3], g_iTopHitsColor[3];
@@ -70,7 +72,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.7.1",
+	version = "3.8.0",
 	url = "antiteal.com"
 };
 
@@ -116,6 +118,7 @@ public void OnPluginStart()
 	g_cVTopHitsTitle = CreateConVar("sm_bhud_tophits_uppertitle", "1", "Enable/Disable the upper title of the top hits table.", _, true, 0.0, true, 1.0);
 	g_cVPlayersInTable = CreateConVar("sm_bhud_tophits_players", "3", "Amount players on the top hits table", _, true, 1.0, true, 10.0);
 	g_cVBossHitMoney = CreateConVar("sm_bhud_tophits_money", "1", "Enable/Disable payment of boss hits", _, true, 0.0, true, 1.0);
+	g_cvBossDeathNotice = CreateConVar("sm_bhud_boss_death_notice", "1", "Enable/Disable the boss death notice", _, true, 0.0, true, 1.0);
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
 	g_cVFramesToSkip = CreateConVar("sm_bhud_frame_to_skip", "7", "Number of frames to skip before displaying the HUD.", _, true, 0.0, true, 66.0);
@@ -133,6 +136,7 @@ public void OnPluginStart()
 	g_cVTopHitsTitle.AddChangeHook(OnConVarChange);
 	g_cVPlayersInTable.AddChangeHook(OnConVarChange);
 	g_cVBossHitMoney.AddChangeHook(OnConVarChange);
+	g_cvBossDeathNotice.AddChangeHook(OnConVarChange);
 	g_cVStatsReward.AddChangeHook(OnConVarChange);
 	g_cVIgnoreFakeClients.AddChangeHook(OnConVarChange);
 	g_cVFramesToSkip.AddChangeHook(OnConVarChange);
@@ -215,6 +219,14 @@ public void OnClientDisconnect(int client)
 public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
 	CleanupAndInit();
+}
+
+public void Event_JoinLeaveMessage(Event event, const char[] name, bool dontBroadcast) 
+{
+	if (!g_bBossDeathNotice || !g_bHookMessagesDeathNotice)
+		return;
+
+	SetEventBool(event, "dontBroadcast", true);
 }
 
 public void OnConVarChange(ConVar convar, char[] oldValue, char[] newValue)
@@ -376,6 +388,120 @@ public void BossHP_OnBossDead(CBoss boss)
 			LogPlayerEvent(TopHits[i], "triggered", i == 0 ? "top_boss_dmg" : (i == 1 ? "second_boss_dmg" : (i == 2 ? "third_boss_dmg" : "super_boss_dmg")));
 		}
 	}
+	
+	if (g_bBossDeathNotice)
+	{
+		// We need to check numbers of terrorists/zombies alive
+		bool bHasAliveT = false;
+		for (int i = 1; i <= MaxClients; i++)
+		{
+			if (!IsClientInGame(i))
+				continue;
+
+			if (GetClientTeam(i) != CS_TEAM_T || !IsPlayerAlive(i))
+				continue;
+
+			bHasAliveT = true;
+			break;
+		}
+
+		// No terrorists/zombies alive, we need to stop here to prevent a round draw
+		if (!bHasAliveT)
+			return;
+
+		boss.dConfig.GetName(szName, sizeof(szName));
+
+		char sBossName[64];
+		int iFakeClient = -1;
+
+		// Generate boss name
+		FormatEx(sBossName, sizeof(sBossName), "BOSS [%s]", szName);
+
+		// Create a fake client if server still have 7+ slots free. (Dont block players from connecting)
+		if (GetClientCount(false) < MaxClients - 7)
+		{
+			g_bHookMessagesDeathNotice = true;
+			iFakeClient = CreateFakeClient(sBossName);
+			if (iFakeClient == 0) // Fake client was no created. Stop here.
+			{
+				g_bHookMessagesDeathNotice = false;
+				return;
+			}
+		}
+
+		CS_SwitchTeam(iFakeClient, CS_TEAM_T);
+
+		DataPack data = new DataPack();
+		data.WriteCell(iFakeClient);
+		data.WriteString(sBossName);
+
+		// We need a small delay related to server processing
+		CreateTimer(0.5, Timer_ShowDeathNotice, data);
+	}
+}
+
+public Action Timer_ShowDeathNotice(Handle timer, DataPack data)
+{
+	char szName[64];
+
+	data.Reset();
+	int iFakeClient = data.ReadCell();
+	data.ReadString(szName, sizeof(szName));
+	delete data;
+
+	int iUserID = GetClientUserId(iFakeClient);
+	int client = GetClientOfUserId(iUserID);
+
+	if (client < 1 || client > MaxClients)	
+	{
+		LogError("Fake client for boss '%s' no longer exists (UserID: %d)", szName, iUserID);
+		g_bHookMessagesDeathNotice = false;
+		return Plugin_Handled;
+	}
+
+	Event event = CreateEvent("player_death");
+	if (!event)
+	{
+		g_bHookMessagesDeathNotice = false;
+		return Plugin_Handled;
+	}
+
+	event.SetInt("userid", iUserID);
+	event.SetInt("attacker", 0);
+	event.SetString("weapon", "worldspawn");
+	event.Fire();
+
+	// Safety check
+	if (!IsClientSourceTV(client))
+		KickClient(client);
+	else
+	{
+		// This shoud never happen but we need to be sure.
+		LogError("Attempted to kick %L but it is a SourceTV client, not a real player. Kicking it is not possible.", client);
+
+		// Problem: the fake client was not kicked for some reason, we can not let it stay in the server.
+		// Solution: check if a real player has the same name as the fake client and kick it.
+		char sName[64];
+		for (int i = 1; i <= MaxClients; i++)
+		{
+			if (!IsClientInGame(i))
+				continue;
+
+			if (IsClientSourceTV(i))
+				continue;
+
+			GetClientName(i, sName, sizeof(sName));
+			if (strcmp(sName, szName, false) == 0)
+			{
+				LogError("Found fake client %L with the same name as death boss `%s`. Kicking it.", i, szName);
+				KickClient(i);
+				// We do not break the loop, we want to take 0 risk.
+			}
+		}
+	}
+
+	g_bHookMessagesDeathNotice = false;
+	return Plugin_Handled;
 }
 
 public void BossHP_OnAllBossProcessStart()
@@ -609,6 +735,7 @@ public void GetConVars()
 	g_bTopHitsTitle = g_cVTopHitsTitle.BoolValue;
 	g_iPlayersInTable = g_cVPlayersInTable.IntValue;
 	g_bBossHitMoney = g_cVBossHitMoney.BoolValue;
+	g_bBossDeathNotice = g_cvBossDeathNotice.BoolValue;
 	g_bStatsReward = g_cVStatsReward.BoolValue;
 	g_bIgnoreFakeClients = g_cVIgnoreFakeClients.BoolValue;
 	g_iFramesToSkip = g_cVFramesToSkip.IntValue;
