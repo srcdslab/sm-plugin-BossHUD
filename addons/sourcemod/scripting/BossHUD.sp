@@ -118,7 +118,7 @@ public void OnPluginStart()
 	g_cVTopHitsTitle = CreateConVar("sm_bhud_tophits_uppertitle", "1", "Enable/Disable the upper title of the top hits table.", _, true, 0.0, true, 1.0);
 	g_cVPlayersInTable = CreateConVar("sm_bhud_tophits_players", "3", "Amount players on the top hits table", _, true, 1.0, true, 10.0);
 	g_cVBossHitMoney = CreateConVar("sm_bhud_tophits_money", "1", "Enable/Disable payment of boss hits", _, true, 0.0, true, 1.0);
-	g_cvBossDeathNotice = CreateConVar("sm_bhud_boss_death_notice", "1", "Enable/Disable the boss death notice", _, true, 0.0, true, 1.0);
+	g_cvBossDeathNotice = CreateConVar("sm_bhud_boss_death_notice", "0", "Enable/Disable the boss death notice", _, true, 0.0, true, 1.0);
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
 	g_cVFramesToSkip = CreateConVar("sm_bhud_frame_to_skip", "7", "Number of frames to skip before displaying the HUD.", _, true, 0.0, true, 66.0);
