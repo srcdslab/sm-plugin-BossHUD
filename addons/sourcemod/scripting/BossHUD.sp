@@ -72,7 +72,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.0",
+	version = "3.8.1",
 	url = "antiteal.com"
 };
 
@@ -111,14 +111,14 @@ public void OnPluginStart()
 	g_cVHudMinHealth = CreateConVar("sm_bhud_health_min", "1000", "Determines what minimum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
 	g_cVHudMaxHealth = CreateConVar("sm_bhud_health_max", "100000", "Determines what maximum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
 	g_cVHudTimeout = CreateConVar("sm_bhud_timeout", "0.5", "Determines when the entity health is supposed to fade away when it doesnt change.", _, true, 0.0, true, 10.0);
-	g_cvHUDChannel = CreateConVar("sm_bhud_hud_channel", "1", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 6.0);
+	g_cvHUDChannel = CreateConVar("sm_bhud_hud_channel", "1", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 5.0);
 
 	g_cVTopHitsPos = CreateConVar("sm_bhud_tophits_position", "0.02 0.3", "The X and Y position for the hud.");
 	g_cVTopHitsColor = CreateConVar("sm_bhud_tophits_color", "255 255 0", "RGB color value for the hud.");
 	g_cVTopHitsTitle = CreateConVar("sm_bhud_tophits_uppertitle", "1", "Enable/Disable the upper title of the top hits table.", _, true, 0.0, true, 1.0);
 	g_cVPlayersInTable = CreateConVar("sm_bhud_tophits_players", "3", "Amount players on the top hits table", _, true, 1.0, true, 10.0);
 	g_cVBossHitMoney = CreateConVar("sm_bhud_tophits_money", "1", "Enable/Disable payment of boss hits", _, true, 0.0, true, 1.0);
-	g_cvBossDeathNotice = CreateConVar("sm_bhud_boss_death_notice", "0", "Enable/Disable the boss death notice", _, true, 0.0, true, 1.0);
+	g_cvBossDeathNotice = CreateConVar("sm_bhud_boss_death_notice", "1", "Enable/Disable the boss death notice", _, true, 0.0, true, 1.0);
 	g_cVStatsReward = CreateConVar("sm_bhud_tophits_reward", "0", "Enable/Disable give of the stats points.", _, true, 0.0, true, 1.0);
 	g_cVIgnoreFakeClients = CreateConVar("sm_bhud_ignore_fakeclients", "1", "Enable/Disable not filtering fake clients.", _, true, 0.0, true, 1.0);
 	g_cVFramesToSkip = CreateConVar("sm_bhud_frame_to_skip", "7", "Number of frames to skip before displaying the HUD.", _, true, 0.0, true, 66.0);
@@ -422,21 +422,52 @@ public void BossHP_OnBossDead(CBoss boss)
 		{
 			g_bHookMessagesDeathNotice = true;
 			iFakeClient = CreateFakeClient(sBossName);
-			if (iFakeClient == 0) // Fake client was no created. Stop here.
+			
+			// Validate fake client creation
+			if (iFakeClient > 0)
 			{
+				DataPack data = new DataPack();
+				data.WriteCell(iFakeClient);
+				data.WriteString(sBossName);
+
+				// Request a frame delay to ensure the fake client is fully connected
+				RequestFrame(OnFakeClientReady, data);
+			}
+			else
+			{
+				// If fake client creation failed, reset the hook flag
 				g_bHookMessagesDeathNotice = false;
-				return;
 			}
 		}
+	}
+}
 
+public void OnFakeClientReady(DataPack data)
+{
+	data.Reset();
+	int iFakeClient = data.ReadCell();
+	char sBossName[64];
+	data.ReadString(sBossName, sizeof(sBossName));
+	delete data;
+
+	// Verify the client is still valid after the frame delay
+	if (iFakeClient > 0 && IsClientInGame(iFakeClient))
+	{
+		// Now switch the team
 		CS_SwitchTeam(iFakeClient, CS_TEAM_T);
 
-		DataPack data = new DataPack();
-		data.WriteCell(iFakeClient);
-		data.WriteString(sBossName);
+		// Create a new data pack for the death notice timer
+		DataPack noticeData = new DataPack();
+		noticeData.WriteCell(iFakeClient);
+		noticeData.WriteString(sBossName);
 
 		// We need a small delay related to server processing
-		CreateTimer(0.5, Timer_ShowDeathNotice, data);
+		CreateTimer(0.5, Timer_ShowDeathNotice, noticeData);
+	}
+	else
+	{
+		// If client is no longer valid, reset the hook flag
+		g_bHookMessagesDeathNotice = false;
 	}
 }
 
@@ -471,9 +502,27 @@ public Action Timer_ShowDeathNotice(Handle timer, DataPack data)
 	event.SetString("weapon", "worldspawn");
 	event.Fire();
 
-	// Safety check
-	if (!IsClientSourceTV(client))
+	// Create a new timer to kick the client after a delay
+	DataPack kickData = new DataPack();
+	kickData.WriteCell(client);
+	kickData.WriteString(szName);
+	CreateTimer(1.0, Timer_KickFakeClient, kickData);
+
+	return Plugin_Handled;
+}
+
+public Action Timer_KickFakeClient(Handle timer, DataPack data)
+{
+	data.Reset();
+	int client = data.ReadCell();
+	char szName[64];
+	data.ReadString(szName, sizeof(szName));
+	delete data;
+
+	if (IsClientInGame(client) && !IsClientSourceTV(client) && IsFakeClient(client))
+	{
 		KickClient(client);
+	}
 	else
 	{
 		// This shoud never happen but we need to be sure.
@@ -1053,7 +1102,7 @@ void SendHudMsg(
 
 			int iHUDChannel = -1;
 
-			if (g_iHUDChannel < 0 || g_iHUDChannel > 6)
+			if (g_iHUDChannel < 0 || g_iHUDChannel > 5)
 				g_iHUDChannel = 1;
 
 		#if defined _DynamicChannels_included_
@@ -1230,7 +1279,7 @@ bool IsValidClient(int client, bool nobots = true)
 }
 
 //   .d8888b.   .d88888b.  888b     d888 888b     d888        d8888 888b    888 8888888b.   .d8888b.
-//  d88P  Y88b d88P" "Y88b 8888b   d8888 8888b   d8888       d88888 8888b   888 888  "Y88b d88P  Y88b
+//  d88P  Y88b d88P" "Y88b 8888b   d8888 8888b   d88888      d88888 8888b   888 888  "Y88b d88P  Y88b
 //  888    888 888     888 88888b.d88888 88888b.d88888      d88P888 88888b  888 888    888 Y88b.
 //  888        888     888 888Y88888P888 888Y88888P888     d88P 888 888Y88b 888 888    888  "Y888b.
 //  888        888     888 888 Y888P 888 888 Y888P 888    d88P  888 888 Y88b888 888    888     "Y88b.
