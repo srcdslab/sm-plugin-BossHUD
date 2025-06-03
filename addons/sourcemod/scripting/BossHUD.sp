@@ -26,6 +26,7 @@ ConVar g_cVHudMinHealth, g_cVHudMaxHealth;
 ConVar g_cVHudTimeout, g_cvHUDChannel;
 ConVar g_cVIgnoreFakeClients;
 ConVar g_cVFramesToSkip;
+ConVar g_cvBossHitsNotifyConsole;
 
 Cookie g_cShowHealth;
 
@@ -42,6 +43,7 @@ bool g_bStatsReward = false;
 bool g_bBossDeathNotice = true;
 bool g_bIgnoreFakeClients = true;
 bool g_bHookMessagesDeathNotice = false;
+bool g_bBossHitsNotifyConsole = false;
 
 int g_iEntityId[MAXPLAYERS+1] = { -1, ... };
 int g_iHudColor[3], g_iTopHitsColor[3];
@@ -72,13 +74,25 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.1",
+	version = "3.8.2",
 	url = "antiteal.com"
 };
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
 	g_bLate = late;
+
+	CreateNative("BossHUD_GetBossHealth", Native_GetBossHealth);
+	CreateNative("BossHUD_GetBossMaxHealth", Native_GetBossMaxHealth);
+	CreateNative("BossHUD_GetBossHits", Native_GetBossHits);
+	CreateNative("BossHUD_GetBossTopHits", Native_GetBossTopHits);
+	CreateNative("BossHUD_IsBossActive", Native_IsBossActive);
+	CreateNative("BossHUD_GetBossName", Native_GetBossName);
+	CreateNative("BossHUD_GetBossHitsCount", Native_GetBossHitsCount);
+	CreateNative("BossHUD_GetBossHitsByClient", Native_GetBossHitsByClient);
+	CreateNative("BossHUD_GetBossHitsRank", Native_GetBossHitsRank);
+
+	RegPluginLibrary("BossHUD");
 	return APLRes_Success;
 }
 
@@ -112,6 +126,7 @@ public void OnPluginStart()
 	g_cVHudMaxHealth = CreateConVar("sm_bhud_health_max", "100000", "Determines what maximum hp entities should have to be detected.", _, true, 0.0, true, 1000000.0);
 	g_cVHudTimeout = CreateConVar("sm_bhud_timeout", "0.5", "Determines when the entity health is supposed to fade away when it doesnt change.", _, true, 0.0, true, 10.0);
 	g_cvHUDChannel = CreateConVar("sm_bhud_hud_channel", "1", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 5.0);
+	g_cvBossHitsNotifyConsole = CreateConVar("sm_bhud_notify_console", "1", "Enable/Disable the print in console to all players of total boss hits", _, true, 0.0, true, 1.0);
 
 	g_cVTopHitsPos = CreateConVar("sm_bhud_tophits_position", "0.02 0.3", "The X and Y position for the hud.");
 	g_cVTopHitsColor = CreateConVar("sm_bhud_tophits_color", "255 255 0", "RGB color value for the hud.");
@@ -140,6 +155,7 @@ public void OnPluginStart()
 	g_cVStatsReward.AddChangeHook(OnConVarChange);
 	g_cVIgnoreFakeClients.AddChangeHook(OnConVarChange);
 	g_cVFramesToSkip.AddChangeHook(OnConVarChange);
+	g_cvBossHitsNotifyConsole.AddChangeHook(OnConVarChange);
 
 	AutoExecConfig(true);
 	GetConVars();
@@ -202,7 +218,7 @@ public void OnPluginEnd()
 		}
 	}
 
-	Cleanup(true);
+	Cleanup();
 }
 
 public void OnClientPutInServer(int client)
@@ -216,7 +232,7 @@ public void OnClientDisconnect(int client)
 	SetClientCookies(client);
 }
 
-public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
+public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast) 
 {
 	CleanupAndInit();
 }
@@ -249,15 +265,6 @@ public void OnClientCookiesCached(int client)
 	ReadClientCookies(client);
 }
 
-//  888b     d888 8888888888 888b    888 888     888
-//  8888b   d8888 888        8888b   888 888     888
-//  88888b.d88888 888        88888b  888 888     888
-//  888Y88888P888 8888888    888Y88b 888 888     888
-//  888 Y888P 888 888        888 Y88b888 888     888
-//  888  Y8P  888 888        888  Y88888 888     888
-//  888   "   888 888        888   Y8888 Y88b. .d88P
-//  888       888 8888888888 888    Y888  "Y88888P"
-
 public void CookieMenu_BHud(int client, CookieMenuAction action, any info, char[] buffer, int maxlen)
 {
 	switch (action)
@@ -273,14 +280,6 @@ public void CookieMenu_BHud(int client, CookieMenuAction action, any info, char[
 		}
 	}
 }
-
-// ##     ##  #######   #######  ##    ##  ######
-// ##     ## ##     ## ##     ## ##   ##  ##    ##
-// ##     ## ##     ## ##     ## ##  ##   ##
-// ######### ##     ## ##     ## #####     ######
-// ##     ## ##     ## ##     ## ##  ##         ##
-// ##     ## ##     ## ##     ## ##   ##  ##    ##
-// ##     ##  #######   #######  ##    ##  ######
 
 public void Hook_OnDamage(const char[] output, int caller, int activator, float delay)
 {
@@ -731,14 +730,6 @@ public void OnGameFrame()
 	iFrame = 0;
 }
 
-// ######## ##     ## ##    ##  ######  ######## ####  #######  ##    ##  ######
-// ##       ##     ## ###   ## ##    ##    ##     ##  ##     ## ###   ## ##    ##
-// ##       ##     ## ####  ## ##          ##     ##  ##     ## ####  ## ##
-// ######   ##     ## ## ## ## ##          ##     ##  ##     ## ## ## ##  ######
-// ##       ##     ## ##  #### ##          ##     ##  ##     ## ##  ####       ##
-// ##       ##     ## ##   ### ##    ##    ##     ##  ##     ## ##   ### ##    ##
-// ##        #######  ##    ##  ######     ##    ####  #######  ##    ##  ######
-
 public void ColorStringToArray(const char[] sColorString, int aColor[3])
 {
 	char asColors[4][4];
@@ -788,6 +779,7 @@ public void GetConVars()
 	g_bStatsReward = g_cVStatsReward.BoolValue;
 	g_bIgnoreFakeClients = g_cVIgnoreFakeClients.BoolValue;
 	g_iFramesToSkip = g_cVFramesToSkip.IntValue;
+	g_bBossHitsNotifyConsole = g_cvBossHitsNotifyConsole.BoolValue;
 }
 
 public void ReadClientCookies(int client)
@@ -900,7 +892,7 @@ public void Init()
 	g_hHudTopHitsSync = CreateHudSynchronizer();
 }
 
-void Cleanup(bool bPluginEnd = false)
+void Cleanup()
 {
 	if (g_aEntity != null)
 	{
@@ -925,20 +917,6 @@ void Cleanup(bool bPluginEnd = false)
 	{
 		KillTimer(g_hTimerHudMsgAll);
 		g_hTimerHudMsgAll = INVALID_HANDLE;
-	}
-
-	if (bPluginEnd)
-	{
-		delete g_cShowHealth;
-		delete g_cVHudPosition;
-		delete g_cVHudColor;
-		delete g_cVHudSymbols;
-		delete g_cVDisplayType;
-		delete g_cVTopHitsPos;
-		delete g_cVTopHitsColor;
-		delete g_cVPlayersInTable;
-		delete g_cVBossHitMoney;
-		delete g_cVStatsReward;
 	}
 }
 
@@ -1200,6 +1178,39 @@ public int GetHitArraySize(int[] arr, int maxlen)
 	return res;
 }
 
+void PrintBossHitsToConsole(int client, const char[] szName, bool IsBreakable, int[] iHits)
+{
+	char sTitle[64], sDamage[32], sHits[32];
+	FormatEx(sTitle, sizeof(sTitle), "%T", "Top Boss", client);
+	FormatEx(sDamage, sizeof(sDamage), "%T", "Damage", client);
+	FormatEx(sHits, sizeof(sHits), "%T", "Hits", client);
+
+	char szConsoleMsg[2048];
+	FormatEx(szConsoleMsg, sizeof(szConsoleMsg), "=========== %s %s [%s] ===========\n", sTitle, IsBreakable ? sDamage : sHits, szName);
+
+	// Add all players who did damage
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (iHits[i] > 0)
+		{
+			char clientName[64];
+			if (!IsValidClient(i) || !GetClientName(i, clientName, sizeof(clientName)))
+				FormatEx(clientName, sizeof(clientName), "Disconnected (#%d)", i);
+
+			char tmp[128];
+			FormatEx(tmp, sizeof(tmp), "  %s: %i %s\n", clientName, iHits[i], IsBreakable ? sDamage : sHits);
+			StrCat(szConsoleMsg, sizeof(szConsoleMsg), tmp);
+		}
+	}
+
+	// Print to console for all players
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (IsClientInGame(i) && !IsFakeClient(i))
+			PrintToConsole(i, szConsoleMsg);
+	}
+}
+
 public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophitslen, int[] iHits, char[] szMessage, int len, int client)
 {
 	char szName[256];
@@ -1242,6 +1253,9 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 
 	SendHudMsgAll(szMessage, DISPLAY_GAME, g_hHudTopHitsSync, g_iTopHitsColor, g_fTopHitsPos, 3.0, 255, false, false, client);
 	CPrintToChat(client, "{yellow}%s", szMessage);
+
+	if (g_bBossHitsNotifyConsole)
+		PrintBossHitsToConsole(client, szName, IsBreakable, iHits);
 }
 
 public int GetClientMoney(int client)
@@ -1277,16 +1291,6 @@ bool IsValidClient(int client, bool nobots = true)
 	}
 	return IsClientInGame(client);
 }
-
-//   .d8888b.   .d88888b.  888b     d888 888b     d888        d8888 888b    888 8888888b.   .d8888b.
-//  d88P  Y88b d88P" "Y88b 8888b   d8888 8888b   d88888      d88888 8888b   888 888  "Y88b d88P  Y88b
-//  888    888 888     888 88888b.d88888 88888b.d88888      d88P888 88888b  888 888    888 Y88b.
-//  888        888     888 888Y88888P888 888Y88888P888     d88P 888 888Y88b 888 888    888  "Y888b.
-//  888        888     888 888 Y888P 888 888 Y888P 888    d88P  888 888 Y88b888 888    888     "Y88b.
-//  888    888 888     888 888  Y8P  888 888  Y8P  888   d88P   888 888  Y88888 888    888       "888
-//  Y88b  d88P Y88b. .d88P 888   "   888 888   "   888  d8888888888 888   Y8888 888  .d88P Y88b  d88P
-//   "Y8888P"   "Y88888P"  888       888 888       888 d88P     888 888    Y888 8888888P"   "Y8888P"
-//
 
 public Action Command_BHud(int client, int argc)
 {
@@ -1415,4 +1419,187 @@ bool IsTrackedEntityClass(const char[] classname)
 {
 	return strcmp(classname, "func_physbox", false) == 0 || strcmp(classname, "func_physbox_multiplayer", false) == 0 || 
 		strcmp(classname, "func_breakable", false) == 0 || strcmp(classname, "math_counter", false) == 0;
+}
+
+// Native: Gets the current health of a boss
+public int Native_GetBossHealth(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return -1;
+		
+	return boss.iHealth;
+}
+
+// Native: Gets the maximum health of a boss
+public int Native_GetBossMaxHealth(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return -1;
+		
+	return boss.iBaseHealth;
+}
+
+// Native: Gets the total number of hits on a boss
+public int Native_GetBossHits(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	
+	char szName[300];
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return -1;
+		
+	BuildName(boss, szName, sizeof(szName));
+	
+	int iHits[MAXPLAYERS + 1];
+	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
+		return -1;
+		
+	int total = 0;
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		total += iHits[i];
+	}
+	
+	return total;
+}
+
+// Native: Gets the top hits on a boss
+public int Native_GetBossTopHits(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	int maxPlayers = GetNativeCell(2);
+	int[] topHits = new int[maxPlayers];
+	
+	char szName[300];
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return 0;
+		
+	BuildName(boss, szName, sizeof(szName));
+	
+	int iHits[MAXPLAYERS + 1];
+	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
+		return 0;
+		
+	int iHits_Sorted[MAXPLAYERS + 1];
+	CopyArray(iHits_Sorted, MAXPLAYERS + 1, iHits, MAXPLAYERS + 1);
+	SortIntegers(iHits_Sorted, MAXPLAYERS + 1, Sort_Descending);
+	
+	GetTopHits(topHits, iHits, iHits_Sorted, maxPlayers, MAXPLAYERS + 1);
+	
+	SetNativeArray(3, topHits, maxPlayers);
+	return GetHitArraySize(iHits, MAXPLAYERS + 1);
+}
+
+// Native: Checks if a boss is active
+public int Native_IsBossActive(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return 0;
+		
+	return 1;
+}
+
+// Native: Gets the name of a boss
+public int Native_GetBossName(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	int maxlen = GetNativeCell(3);
+	char[] buffer = new char[maxlen];
+	
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return 0;
+		
+	boss.dConfig.GetName(buffer, maxlen);
+	SetNativeString(2, buffer, maxlen);
+	return 1;
+}
+
+// Native: Gets the total number of players who hit the boss
+public int Native_GetBossHitsCount(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	
+	char szName[300];
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return -1;
+		
+	BuildName(boss, szName, sizeof(szName));
+	
+	int iHits[MAXPLAYERS + 1];
+	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
+		return -1;
+		
+	return GetHitArraySize(iHits, MAXPLAYERS + 1);
+}
+
+// Native: Gets the number of hits from a specific player on a boss
+public int Native_GetBossHitsByClient(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	int client = GetNativeCell(2);
+	
+	if (!IsValidClient(client))
+		return -1;
+		
+	char szName[300];
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return -1;
+		
+	BuildName(boss, szName, sizeof(szName));
+	
+	int iHits[MAXPLAYERS + 1];
+	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
+		return -1;
+		
+	return iHits[client];
+}
+
+// Native: Gets the rank of a player in boss hits
+public int Native_GetBossHitsRank(Handle plugin, int numParams)
+{
+	int bossEnt = GetNativeCell(1);
+	int client = GetNativeCell(2);
+	
+	if (!IsValidClient(client))
+		return -1;
+		
+	char szName[300];
+	CBoss boss;
+	if (!BossHP_IsBossEnt(bossEnt, boss))
+		return -1;
+		
+	BuildName(boss, szName, sizeof(szName));
+	
+	int iHits[MAXPLAYERS + 1];
+	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
+		return -1;
+		
+	int iHits_Sorted[MAXPLAYERS + 1];
+	CopyArray(iHits_Sorted, MAXPLAYERS + 1, iHits, MAXPLAYERS + 1);
+	SortIntegers(iHits_Sorted, MAXPLAYERS + 1, Sort_Descending);
+	
+	int rank = 1;
+	for (int i = 0; i < MAXPLAYERS + 1; i++)
+	{
+		if (iHits_Sorted[i] == iHits[client])
+			return rank;
+		if (iHits_Sorted[i] > iHits[client])
+			rank++;
+	}
+	
+	return rank;
 }
