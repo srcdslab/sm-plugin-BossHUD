@@ -1178,6 +1178,29 @@ public int GetHitArraySize(int[] arr, int maxlen)
 	return res;
 }
 
+void SortPlayerHits(int[] playerIndices, int[] playerHits, int playerCount)
+{
+	// Sort players by hits in descending order
+	for (int i = 0; i < playerCount - 1; i++)
+	{
+		for (int j = 0; j < playerCount - i - 1; j++)
+		{
+			if (playerHits[j] < playerHits[j + 1])
+			{
+				// Swap hits
+				int tempHits = playerHits[j];
+				playerHits[j] = playerHits[j + 1];
+				playerHits[j + 1] = tempHits;
+
+				// Swap indices
+				int tempIndex = playerIndices[j];
+				playerIndices[j] = playerIndices[j + 1];
+				playerIndices[j + 1] = tempIndex;
+			}
+		}
+	}
+}
+
 public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophitslen, int[] iHits, char[] szMessage, int len, int client)
 {
 	char szName[256];
@@ -1204,25 +1227,8 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 		}
 	}
 
-	// Sort players by hits in descending order
-	for (int i = 0; i < playerCount - 1; i++)
-	{
-		for (int j = 0; j < playerCount - i - 1; j++)
-		{
-			if (playerHits[j] < playerHits[j + 1])
-			{
-				// Swap hits
-				int tempHits = playerHits[j];
-				playerHits[j] = playerHits[j + 1];
-				playerHits[j + 1] = tempHits;
-
-				// Swap indices
-				int tempIndex = playerIndices[j];
-				playerIndices[j] = playerIndices[j + 1];
-				playerIndices[j + 1] = tempIndex;
-			}
-		}
-	}
+	// Sort players by hits
+	SortPlayerHits(playerIndices, playerHits, playerCount);
 
 	// Prepare messages
 	char szConsoleMsg[2048];
