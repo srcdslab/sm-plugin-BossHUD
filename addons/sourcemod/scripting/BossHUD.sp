@@ -74,7 +74,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.2",
+	version = "3.8.3",
 	url = "antiteal.com"
 };
 
@@ -1178,36 +1178,26 @@ public int GetHitArraySize(int[] arr, int maxlen)
 	return res;
 }
 
-void PrintBossHitsToConsole(int client, const char[] szName, bool IsBreakable, int[] iHits)
+void SortPlayerHits(int[] playerIndices, int[] playerHits, int playerCount)
 {
-	char sTitle[64], sDamage[32], sHits[32];
-	FormatEx(sTitle, sizeof(sTitle), "%T", "Top Boss", client);
-	FormatEx(sDamage, sizeof(sDamage), "%T", "Damage", client);
-	FormatEx(sHits, sizeof(sHits), "%T", "Hits", client);
-
-	char szConsoleMsg[2048];
-	FormatEx(szConsoleMsg, sizeof(szConsoleMsg), "=========== %s %s [%s] ===========\n", sTitle, IsBreakable ? sDamage : sHits, szName);
-
-	// Add all players who did damage
-	for (int i = 1; i <= MaxClients; i++)
+	// Sort players by hits in descending order
+	for (int i = 0; i < playerCount - 1; i++)
 	{
-		if (iHits[i] > 0)
+		for (int j = 0; j < playerCount - i - 1; j++)
 		{
-			char clientName[64];
-			if (!IsValidClient(i) || !GetClientName(i, clientName, sizeof(clientName)))
-				FormatEx(clientName, sizeof(clientName), "Disconnected (#%d)", i);
+			if (playerHits[j] < playerHits[j + 1])
+			{
+				// Swap hits
+				int tempHits = playerHits[j];
+				playerHits[j] = playerHits[j + 1];
+				playerHits[j + 1] = tempHits;
 
-			char tmp[128];
-			FormatEx(tmp, sizeof(tmp), "  %s: %i %s\n", clientName, iHits[i], IsBreakable ? sDamage : sHits);
-			StrCat(szConsoleMsg, sizeof(szConsoleMsg), tmp);
+				// Swap indices
+				int tempIndex = playerIndices[j];
+				playerIndices[j] = playerIndices[j + 1];
+				playerIndices[j + 1] = tempIndex;
+			}
 		}
-	}
-
-	// Print to console for all players
-	for (int i = 1; i <= MaxClients; i++)
-	{
-		if (IsClientInGame(i) && !IsFakeClient(i))
-			PrintToConsole(i, szConsoleMsg);
 	}
 }
 
@@ -1221,6 +1211,27 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 	FormatEx(sDamage, sizeof(sDamage), "%T", "Damage", client);
 	FormatEx(sHits, sizeof(sHits), "%T", "Hits", client);
 
+	// Create arrays to store player info for sorting
+	int playerIndices[MAXPLAYERS + 1];
+	int playerHits[MAXPLAYERS + 1];
+	int playerCount = 0;
+
+	// Collect all players who did damage
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (iHits[i] > 0)
+		{
+			playerIndices[playerCount] = i;
+			playerHits[playerCount] = iHits[i];
+			playerCount++;
+		}
+	}
+
+	// Sort players by hits
+	SortPlayerHits(playerIndices, playerHits, playerCount);
+
+	// Prepare messages
+	char szConsoleMsg[2048];
 	if (g_bTopHitsTitle)
 	{
 		char sDamageUpper[32], sHitsUpper[32];
@@ -1232,30 +1243,41 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 		StringToUpperCase(sHitsUpper);
 
 		FormatEx(szMessage, len, "%s %s [%s]\n", sTitle, IsBreakable ? sDamageUpper : sHitsUpper, szName);
+		if (g_bBossHitsNotifyConsole)
+			FormatEx(szConsoleMsg, sizeof(szConsoleMsg), "=========== %s %s [%s] ===========\n", sTitle, IsBreakable ? sDamageUpper : sHitsUpper, szName);
 	}
 	else
 	{
 		FormatEx(szMessage, len, "%T %s [%s]\n", "Top Boss", client, IsBreakable ? sDamage : sHits, szName);
+		if (g_bBossHitsNotifyConsole)
+			FormatEx(szConsoleMsg, sizeof(szConsoleMsg), "=========== %s %s [%s] ===========\n", sTitle, IsBreakable ? sDamage : sHits, szName);
 	}
 
-	for (int i = 0; i < tophitslen; i++)
+	// Print results for both console and chat/HUD
+	int displayCount = (g_iPlayersInTable < playerCount) ? g_iPlayersInTable : playerCount;
+	for (int i = 0; i < playerCount; i++)
 	{
-		int iTopClient = TopHits[i];
-		char tmp[142];
-
+		int playerIndex = playerIndices[i];
 		char clientName[64];
-		if (!IsValidClient(iTopClient) || !GetClientName(iTopClient, clientName, sizeof(clientName)))
-			FormatEx(clientName, sizeof(clientName), "Disconnected (#%d)", iTopClient);
+		if (!IsValidClient(playerIndex) || !GetClientName(playerIndex, clientName, sizeof(clientName)))
+			FormatEx(clientName, sizeof(clientName), "Disconnected (#%d)", playerIndex);
 
-		FormatEx(tmp, sizeof(tmp), "%i. %s: %i %s\n", i + 1, clientName, iHits[iTopClient], IsBreakable ? sDamage : sHits);
-		StrCat(szMessage, len, tmp);
+		char tmp[128];
+		FormatEx(tmp, sizeof(tmp), "%i. %s: %i %s\n", i + 1, clientName, playerHits[i], IsBreakable ? sDamage : sHits);
+
+		if (i < displayCount)
+			StrCat(szMessage, len, tmp);
+
+		if (g_bBossHitsNotifyConsole)
+			StrCat(szConsoleMsg, sizeof(szConsoleMsg), tmp);
 	}
 
+	// Send messages
 	SendHudMsgAll(szMessage, DISPLAY_GAME, g_hHudTopHitsSync, g_iTopHitsColor, g_fTopHitsPos, 3.0, 255, false, false, client);
 	CPrintToChat(client, "{yellow}%s", szMessage);
 
 	if (g_bBossHitsNotifyConsole)
-		PrintBossHitsToConsole(client, szName, IsBreakable, iHits);
+		PrintToConsole(client, szConsoleMsg);
 }
 
 public int GetClientMoney(int client)
@@ -1277,9 +1299,13 @@ public bool SetClientMoney(int client, int money)
 
 stock void StringToUpperCase(char[] input)
 {
-	for (int i = 0; i < strlen(input); i++)
+	int i = 0;
+	int x;
+	while ((x = input[i]) != '\0')
 	{
-		input[i] = CharToUpper(input[i]);
+		if ('a' <= x <= 'z')
+			input[i] -= ('a' - 'A');
+		i++;
 	}
 }
 
