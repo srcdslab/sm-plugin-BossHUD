@@ -74,7 +74,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.5",
+	version = "3.8.4",
 	url = "antiteal.com"
 };
 
@@ -206,18 +206,6 @@ stock void VerifyNatives()
 
 public void OnPluginEnd()
 {
-	// Late unload
-	if (g_bLate)
-	{
-		for (int i = 1; i <= MaxClients; i++)
-		{
-			if (IsClientConnected(i))
-			{
-				OnClientDisconnect(i);
-			}
-		}
-	}
-
 	Cleanup();
 }
 
