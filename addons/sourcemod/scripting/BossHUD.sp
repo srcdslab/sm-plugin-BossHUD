@@ -162,17 +162,16 @@ public void OnPluginStart()
 
 	CleanupAndInit();
 
-	// Late load
-	if (g_bLate)
+	if (!g_bLate)
+		return;
+
+	for (int i = 1; i <= MaxClients; i++)
 	{
-		for (int i = 1; i <= MaxClients; i++)
-		{
-			if (IsClientConnected(i))
-			{
-				OnClientPutInServer(i);
-			}
-		}
+		if (IsClientConnected(i))
+			OnClientPutInServer(i);
 	}
+
+	g_bLate = false;
 }
 
 public void OnAllPluginsLoaded()
@@ -211,6 +210,9 @@ public void OnPluginEnd()
 
 public void OnClientPutInServer(int client)
 {
+	if (!g_bLate)
+		return;
+
 	if (AreClientCookiesCached(client))
 		ReadClientCookies(client);
 }
