@@ -785,9 +785,7 @@ public void ToggleBhud(int client)
 	g_bShowHealth[client] = !g_bShowHealth[client];
 	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled");
 
-	char sValue[8];
-	FormatEx(sValue, sizeof(sValue), "%i", g_bShowHealth[client]);
-	g_cShowHealth.Set(client, sValue);
+	g_bShowHealth[client] ? g_cShowHealth.Set(client, "1") : g_cShowHealth.Set(client, "0");
 }
 
 bool CEntityRemove(int entity)
