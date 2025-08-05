@@ -74,7 +74,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.3",
+	version = "3.8.4",
 	url = "antiteal.com"
 };
 
@@ -162,17 +162,16 @@ public void OnPluginStart()
 
 	CleanupAndInit();
 
-	// Late load
-	if (g_bLate)
+	if (!g_bLate)
+		return;
+
+	for (int i = 1; i <= MaxClients; i++)
 	{
-		for (int i = 1; i <= MaxClients; i++)
-		{
-			if (IsClientConnected(i))
-			{
-				OnClientPutInServer(i);
-			}
-		}
+		if (IsClientConnected(i))
+			OnClientPutInServer(i);
 	}
+
+	g_bLate = false;
 }
 
 public void OnAllPluginsLoaded()
@@ -206,30 +205,16 @@ stock void VerifyNatives()
 
 public void OnPluginEnd()
 {
-	// Late unload
-	if (g_bLate)
-	{
-		for (int i = 1; i <= MaxClients; i++)
-		{
-			if (IsClientConnected(i))
-			{
-				OnClientDisconnect(i);
-			}
-		}
-	}
-
 	Cleanup();
 }
 
 public void OnClientPutInServer(int client)
 {
+	if (!g_bLate)
+		return;
+
 	if (AreClientCookiesCached(client))
 		ReadClientCookies(client);
-}
-
-public void OnClientDisconnect(int client)
-{
-	SetClientCookies(client);
 }
 
 public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast) 
@@ -518,14 +503,20 @@ public Action Timer_KickFakeClient(Handle timer, DataPack data)
 	data.ReadString(szName, sizeof(szName));
 	delete data;
 
-	if (IsClientInGame(client) && !IsClientSourceTV(client) && IsFakeClient(client))
+	if (client <= 0 || client > MaxClients || !IsClientInGame(client))
+	{
+		g_bHookMessagesDeathNotice = false;
+		return Plugin_Handled;
+	}
+
+	if (!IsClientSourceTV(client) && IsFakeClient(client))
 	{
 		KickClient(client);
 	}
 	else
 	{
-		// This shoud never happen but we need to be sure.
-		LogError("Attempted to kick %L but it is a SourceTV client, not a real player. Kicking it is not possible.", client);
+		// This should never happen but we need to be sure.
+		LogError("Attempted to kick client %d but it is a SourceTV client, not a real player. Kicking it is not possible.", client);
 
 		// Problem: the fake client was not kicked for some reason, we can not let it stay in the server.
 		// Solution: check if a real player has the same name as the fake client and kick it.
@@ -541,7 +532,7 @@ public Action Timer_KickFakeClient(Handle timer, DataPack data)
 			GetClientName(i, sName, sizeof(sName));
 			if (strcmp(sName, szName, false) == 0)
 			{
-				LogError("Found fake client %L with the same name as death boss `%s`. Kicking it.", i, szName);
+				LogError("Found client %d with the same name as death boss '%s'. Kicking it.", i, szName);
 				KickClient(i);
 				// We do not break the loop, we want to take 0 risk.
 			}
@@ -789,17 +780,12 @@ public void ReadClientCookies(int client)
 	g_bShowHealth[client] = (sValue[0] == '\0' ? true : view_as<bool>(StringToInt(sValue)));
 }
 
-public void SetClientCookies(int client)
-{
-	char sValue[8];
-	FormatEx(sValue, sizeof(sValue), "%i", g_bShowHealth[client]);
-	g_cShowHealth.Set(client, sValue);
-}
-
 public void ToggleBhud(int client)
 {
 	g_bShowHealth[client] = !g_bShowHealth[client];
 	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled");
+
+	g_bShowHealth[client] ? g_cShowHealth.Set(client, "1") : g_cShowHealth.Set(client, "0");
 }
 
 bool CEntityRemove(int entity)
