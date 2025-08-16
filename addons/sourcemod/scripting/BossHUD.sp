@@ -74,7 +74,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.4",
+	version = "3.8.5",
 	url = "antiteal.com"
 };
 
@@ -167,8 +167,10 @@ public void OnPluginStart()
 
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		if (IsClientConnected(i))
-			OnClientPutInServer(i);
+		if (!IsClientConnected(i) || IsFakeClient(i) || !AreClientCookiesCached(i))
+			continue;
+
+		ReadClientCookies(i);
 	}
 
 	g_bLate = false;
@@ -206,15 +208,6 @@ stock void VerifyNatives()
 public void OnPluginEnd()
 {
 	Cleanup();
-}
-
-public void OnClientPutInServer(int client)
-{
-	if (!g_bLate)
-		return;
-
-	if (AreClientCookiesCached(client))
-		ReadClientCookies(client);
 }
 
 public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast) 
