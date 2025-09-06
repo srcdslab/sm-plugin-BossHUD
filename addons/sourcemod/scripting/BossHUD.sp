@@ -74,7 +74,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.5",
+	version = "3.8.6",
 	url = "antiteal.com"
 };
 
@@ -117,6 +117,8 @@ public void OnPluginStart()
 	HookEntityOutput("math_counter", "OutValue", Hook_OnDamage);
 
 	HookEvent("round_end", Event_OnRoundEnd, EventHookMode_PostNoCopy);
+	HookEvent("player_connect_client", Event_JoinLeaveMessage, EventHookMode_Pre);
+	HookEvent("player_disconnect", Event_JoinLeaveMessage, EventHookMode_Pre);
 
 	g_cVHudPosition = CreateConVar("sm_bhud_position", "-1.0 0.09", "The X and Y position for the hud.");
 	g_cVHudColor = CreateConVar("sm_bhud_color", "255 0 0", "RGB color value for the hud.");
@@ -220,7 +222,10 @@ public void Event_JoinLeaveMessage(Event event, const char[] name, bool dontBroa
 	if (!g_bBossDeathNotice || !g_bHookMessagesDeathNotice)
 		return;
 
-	SetEventBool(event, "dontBroadcast", true);
+	if (!event.GetBool("bot"))
+		return;
+
+	event.BroadcastDisabled = true;
 }
 
 public void OnConVarChange(ConVar convar, char[] oldValue, char[] newValue)
