@@ -74,7 +74,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.5",
+	version = "3.8.6",
 	url = "antiteal.com"
 };
 
@@ -117,6 +117,8 @@ public void OnPluginStart()
 	HookEntityOutput("math_counter", "OutValue", Hook_OnDamage);
 
 	HookEvent("round_end", Event_OnRoundEnd, EventHookMode_PostNoCopy);
+	HookEvent("player_connect_client", Event_JoinLeaveMessage, EventHookMode_Pre);
+	HookEvent("player_disconnect", Event_JoinLeaveMessage, EventHookMode_Pre);
 
 	g_cVHudPosition = CreateConVar("sm_bhud_position", "-1.0 0.09", "The X and Y position for the hud.");
 	g_cVHudColor = CreateConVar("sm_bhud_color", "255 0 0", "RGB color value for the hud.");
@@ -210,17 +212,20 @@ public void OnPluginEnd()
 	Cleanup();
 }
 
-public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast) 
+public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
 	CleanupAndInit();
 }
 
-public void Event_JoinLeaveMessage(Event event, const char[] name, bool dontBroadcast) 
+public void Event_JoinLeaveMessage(Event event, const char[] name, bool dontBroadcast)
 {
 	if (!g_bBossDeathNotice || !g_bHookMessagesDeathNotice)
 		return;
 
-	SetEventBool(event, "dontBroadcast", true);
+	if (!event.GetBool("bot"))
+		return;
+
+	event.BroadcastDisabled = true;
 }
 
 public void OnConVarChange(ConVar convar, char[] oldValue, char[] newValue)
@@ -365,7 +370,7 @@ public void BossHP_OnBossDead(CBoss boss)
 			LogPlayerEvent(TopHits[i], "triggered", i == 0 ? "top_boss_dmg" : (i == 1 ? "second_boss_dmg" : (i == 2 ? "third_boss_dmg" : "super_boss_dmg")));
 		}
 	}
-	
+
 	if (g_bBossDeathNotice)
 	{
 		// We need to check numbers of terrorists/zombies alive
@@ -399,7 +404,7 @@ public void BossHP_OnBossDead(CBoss boss)
 		{
 			g_bHookMessagesDeathNotice = true;
 			iFakeClient = CreateFakeClient(sBossName);
-			
+
 			// Validate fake client creation
 			if (iFakeClient > 0)
 			{
@@ -460,7 +465,7 @@ public Action Timer_ShowDeathNotice(Handle timer, DataPack data)
 	int iUserID = GetClientUserId(iFakeClient);
 	int client = GetClientOfUserId(iUserID);
 
-	if (client < 1 || client > MaxClients)	
+	if (client < 1 || client > MaxClients)
 	{
 		LogError("Fake client for boss '%s' no longer exists (UserID: %d)", szName, iUserID);
 		g_bHookMessagesDeathNotice = false;
@@ -481,7 +486,7 @@ public Action Timer_ShowDeathNotice(Handle timer, DataPack data)
 
 	// Create a new timer to kick the client after a delay
 	DataPack kickData = new DataPack();
-	kickData.WriteCell(client);
+	kickData.WriteCell(iUserID);
 	kickData.WriteString(szName);
 	CreateTimer(1.0, Timer_KickFakeClient, kickData);
 
@@ -491,7 +496,7 @@ public Action Timer_ShowDeathNotice(Handle timer, DataPack data)
 public Action Timer_KickFakeClient(Handle timer, DataPack data)
 {
 	data.Reset();
-	int client = data.ReadCell();
+	int client = GetClientOfUserId(data.ReadCell());
 	char szName[64];
 	data.ReadString(szName, sizeof(szName));
 	delete data;
@@ -532,6 +537,12 @@ public Action Timer_KickFakeClient(Handle timer, DataPack data)
 		}
 	}
 
+	CreateTimer(1.0, Timer_ResetDeathNoticeHook, _, TIMER_FLAG_NO_MAPCHANGE);
+	return Plugin_Handled;
+}
+
+public Action Timer_ResetDeathNoticeHook(Handle timer)
+{
 	g_bHookMessagesDeathNotice = false;
 	return Plugin_Handled;
 }
@@ -707,7 +718,7 @@ public void OnGameFrame()
 			continue;
 		if (!g_bShowHealth[client])
 			continue;
-		
+
 		SendHudMsg(client, g_sHUDTextSave, g_iDisplayType, INVALID_HANDLE, g_iHudColor, g_fHudPos, 3.0, 255);
 	}
 
@@ -897,6 +908,8 @@ void Cleanup()
 		KillTimer(g_hTimerHudMsgAll);
 		g_hTimerHudMsgAll = INVALID_HANDLE;
 	}
+
+	g_bHookMessagesDeathNotice = false;
 }
 
 void GetEntityName(int entity, char szName[64])
@@ -922,7 +935,7 @@ int GetEntityHealth(int entity, CEntity _Entity = null)
 
 		float rawValue = GetEntDataFloat(entity, offset);
 		float maxValue = GetEntPropFloat(entity, Prop_Data, "m_flMax");
-		
+
 		if (_Entity != null) // If the entity is in our list, use its stored health value
 			health = _Entity.iHealth;
 		else if (maxValue > 0) // Health is the difference between max and current value
@@ -1422,7 +1435,7 @@ int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
 
 bool IsTrackedEntityClass(const char[] classname)
 {
-	return strcmp(classname, "func_physbox", false) == 0 || strcmp(classname, "func_physbox_multiplayer", false) == 0 || 
+	return strcmp(classname, "func_physbox", false) == 0 || strcmp(classname, "func_physbox_multiplayer", false) == 0 ||
 		strcmp(classname, "func_breakable", false) == 0 || strcmp(classname, "math_counter", false) == 0;
 }
 
@@ -1430,11 +1443,11 @@ bool IsTrackedEntityClass(const char[] classname)
 public int Native_GetBossHealth(Handle plugin, int numParams)
 {
 	int bossEnt = GetNativeCell(1);
-	
+
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return -1;
-		
+
 	return boss.iHealth;
 }
 
@@ -1442,11 +1455,11 @@ public int Native_GetBossHealth(Handle plugin, int numParams)
 public int Native_GetBossMaxHealth(Handle plugin, int numParams)
 {
 	int bossEnt = GetNativeCell(1);
-	
+
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return -1;
-		
+
 	return boss.iBaseHealth;
 }
 
@@ -1454,24 +1467,24 @@ public int Native_GetBossMaxHealth(Handle plugin, int numParams)
 public int Native_GetBossHits(Handle plugin, int numParams)
 {
 	int bossEnt = GetNativeCell(1);
-	
+
 	char szName[300];
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return -1;
-		
+
 	BuildName(boss, szName, sizeof(szName));
-	
+
 	int iHits[MAXPLAYERS + 1];
 	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
 		return -1;
-		
+
 	int total = 0;
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		total += iHits[i];
 	}
-	
+
 	return total;
 }
 
@@ -1481,24 +1494,24 @@ public int Native_GetBossTopHits(Handle plugin, int numParams)
 	int bossEnt = GetNativeCell(1);
 	int maxPlayers = GetNativeCell(2);
 	int[] topHits = new int[maxPlayers];
-	
+
 	char szName[300];
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return 0;
-		
+
 	BuildName(boss, szName, sizeof(szName));
-	
+
 	int iHits[MAXPLAYERS + 1];
 	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
 		return 0;
-		
+
 	int iHits_Sorted[MAXPLAYERS + 1];
 	CopyArray(iHits_Sorted, MAXPLAYERS + 1, iHits, MAXPLAYERS + 1);
 	SortIntegers(iHits_Sorted, MAXPLAYERS + 1, Sort_Descending);
-	
+
 	GetTopHits(topHits, iHits, iHits_Sorted, maxPlayers, MAXPLAYERS + 1);
-	
+
 	SetNativeArray(3, topHits, maxPlayers);
 	return GetHitArraySize(iHits, MAXPLAYERS + 1);
 }
@@ -1507,11 +1520,11 @@ public int Native_GetBossTopHits(Handle plugin, int numParams)
 public int Native_IsBossActive(Handle plugin, int numParams)
 {
 	int bossEnt = GetNativeCell(1);
-	
+
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return 0;
-		
+
 	return 1;
 }
 
@@ -1521,11 +1534,11 @@ public int Native_GetBossName(Handle plugin, int numParams)
 	int bossEnt = GetNativeCell(1);
 	int maxlen = GetNativeCell(3);
 	char[] buffer = new char[maxlen];
-	
+
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return 0;
-		
+
 	boss.dConfig.GetName(buffer, maxlen);
 	SetNativeString(2, buffer, maxlen);
 	return 1;
@@ -1535,18 +1548,18 @@ public int Native_GetBossName(Handle plugin, int numParams)
 public int Native_GetBossHitsCount(Handle plugin, int numParams)
 {
 	int bossEnt = GetNativeCell(1);
-	
+
 	char szName[300];
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return -1;
-		
+
 	BuildName(boss, szName, sizeof(szName));
-	
+
 	int iHits[MAXPLAYERS + 1];
 	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
 		return -1;
-		
+
 	return GetHitArraySize(iHits, MAXPLAYERS + 1);
 }
 
@@ -1555,21 +1568,21 @@ public int Native_GetBossHitsByClient(Handle plugin, int numParams)
 {
 	int bossEnt = GetNativeCell(1);
 	int client = GetNativeCell(2);
-	
+
 	if (!IsValidClient(client))
 		return -1;
-		
+
 	char szName[300];
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return -1;
-		
+
 	BuildName(boss, szName, sizeof(szName));
-	
+
 	int iHits[MAXPLAYERS + 1];
 	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
 		return -1;
-		
+
 	return iHits[client];
 }
 
@@ -1578,25 +1591,25 @@ public int Native_GetBossHitsRank(Handle plugin, int numParams)
 {
 	int bossEnt = GetNativeCell(1);
 	int client = GetNativeCell(2);
-	
+
 	if (!IsValidClient(client))
 		return -1;
-		
+
 	char szName[300];
 	CBoss boss;
 	if (!BossHP_IsBossEnt(bossEnt, boss))
 		return -1;
-		
+
 	BuildName(boss, szName, sizeof(szName));
-	
+
 	int iHits[MAXPLAYERS + 1];
 	if (!g_smBossMap.GetArray(szName, iHits, MAXPLAYERS + 1))
 		return -1;
-		
+
 	int iHits_Sorted[MAXPLAYERS + 1];
 	CopyArray(iHits_Sorted, MAXPLAYERS + 1, iHits, MAXPLAYERS + 1);
 	SortIntegers(iHits_Sorted, MAXPLAYERS + 1, Sort_Descending);
-	
+
 	int rank = 1;
 	for (int i = 0; i < MAXPLAYERS + 1; i++)
 	{
@@ -1605,6 +1618,6 @@ public int Native_GetBossHitsRank(Handle plugin, int numParams)
 		if (iHits_Sorted[i] > iHits[client])
 			rank++;
 	}
-	
+
 	return rank;
 }
