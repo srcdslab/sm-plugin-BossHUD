@@ -803,7 +803,7 @@ bool CEntityRemove(int entity)
 		if (_Entity.iIndex == entity)
 		{
 			g_aEntity.Erase(i);
-			i--;
+			delete _Entity;
 			return true;
 		}
 	}
@@ -1621,3 +1621,4 @@ public int Native_GetBossHitsRank(Handle plugin, int numParams)
 
 	return rank;
 }
+
