@@ -79,7 +79,7 @@
 		"#format"	"{1:i},{2:i},{3:i}"
 
 		"en"		"{1} Health subtracted ({2} HP to {3} HP)"
-		"fr"		"{1} points de vie soustrait ({2} HP à {3} HP})"
+		"fr"		"{1} points de vie soustrait ({2} HP à {3} HP)"
 		"zho"		"從Boss扣{1}血量（從{2}到{3}）"
 		"chi"		"从Boss扣{1}血量（从{2}到{3}）"
 	}
@@ -89,7 +89,7 @@
 		"#format"	"{1:i},{2:i},{3:i}"
 
 		"en"		"{1} Health added ({2} HP to {3} HP)"
-		"fr"		"{1} points de vie ajouté ({2} HP à {3} HP})"
+		"fr"		"{1} points de vie ajouté ({2} HP à {3} HP)"
 		"zho"		"對Boss加{1}血量（從{2}到{3}）"
 		"chi"		"对Boss加{1}血量（从{2}到{3}）"
 	}
