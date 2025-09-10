@@ -74,7 +74,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.7",
+	version = "3.8.8",
 	url = "antiteal.com"
 };
 
@@ -638,6 +638,9 @@ public void OnEntitySpawned(int entity, const char[] classname)
 
 public void OnEntityDestroyed(int entity)
 {
+	if (!g_aEntity || g_aEntity.Length == 0)
+		return;
+
 	RequestFrame(ProcessEntityDestroyed, entity);
 
 	if (CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "SDKHook_OnEntitySpawned") == FeatureStatus_Available)
@@ -1621,5 +1624,3 @@ public int Native_GetBossHitsRank(Handle plugin, int numParams)
 
 	return rank;
 }
-
-
