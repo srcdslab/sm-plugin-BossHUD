@@ -74,7 +74,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.6",
+	version = "3.8.7",
 	url = "antiteal.com"
 };
 
@@ -803,7 +803,7 @@ bool CEntityRemove(int entity)
 		if (_Entity.iIndex == entity)
 		{
 			g_aEntity.Erase(i);
-			i--;
+			delete _Entity;
 			return true;
 		}
 	}
@@ -1621,3 +1621,5 @@ public int Native_GetBossHitsRank(Handle plugin, int numParams)
 
 	return rank;
 }
+
+
