@@ -440,7 +440,7 @@ public void OnFakeClientReady(DataPack data)
 
 		// Create a new data pack for the death notice timer
 		DataPack noticeData = new DataPack();
-		noticeData.WriteCell(iFakeClient);
+		noticeData.WriteCell(GetClientUserId(iFakeClient));
 		noticeData.WriteString(sBossName);
 
 		// We need a small delay related to server processing
@@ -458,11 +458,10 @@ public Action Timer_ShowDeathNotice(Handle timer, DataPack data)
 	char szName[64];
 
 	data.Reset();
-	int iFakeClient = data.ReadCell();
+	int iUserID = data.ReadCell();
 	data.ReadString(szName, sizeof(szName));
 	delete data;
 
-	int iUserID = GetClientUserId(iFakeClient);
 	int client = GetClientOfUserId(iUserID);
 
 	if (client < 1 || client > MaxClients)
