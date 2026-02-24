@@ -432,6 +432,12 @@ public void OnFakeClientReady(DataPack data)
 	data.ReadString(sBossName, sizeof(sBossName));
 	delete data;
 
+	if (iFakeClient <= 0 || iFakeClient > MaxClients)
+	{
+		g_bHookMessagesDeathNotice = false;
+		return;
+	}
+
 	// Verify the client is still valid after the frame delay
 	if (iFakeClient > 0 && IsClientInGame(iFakeClient))
 	{
