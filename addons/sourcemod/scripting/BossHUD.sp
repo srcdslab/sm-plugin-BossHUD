@@ -998,13 +998,7 @@ int GetClientTrackedEntity(int client)
 	if (g_iEntityRef[client] == INVALID_ENT_REFERENCE)
 		return INVALID_ENT_REFERENCE;
 
-	int ent = ResolveEntityIndex(g_iEntityRef[client]);
-	if (ent == INVALID_ENT_REFERENCE)
-	{
-		return INVALID_ENT_REFERENCE;
-	}
-
-	return ent;
+	return ResolveEntityIndex(g_iEntityRef[client]);
 }
 
 bool IsTrackedEntityMatch(CEntity entityData, int refOrIndex)
