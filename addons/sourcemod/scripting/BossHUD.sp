@@ -1001,7 +1001,6 @@ int GetClientTrackedEntity(int client)
 	int ent = ResolveEntityIndex(g_iEntityRef[client]);
 	if (ent == INVALID_ENT_REFERENCE)
 	{
-		g_iEntityRef[client] = INVALID_ENT_REFERENCE;
 		return INVALID_ENT_REFERENCE;
 	}
 
