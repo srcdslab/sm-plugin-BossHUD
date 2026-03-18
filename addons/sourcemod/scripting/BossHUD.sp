@@ -1546,7 +1546,7 @@ int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
 			for (int i = 0; i < g_aEntity.Length; i++)
 			{
 				CEntity _Entity = g_aEntity.Get(i);
-				if (_Entity.iIndex == entity)
+				if (IsTrackedEntityMatch(_Entity, entity))
 				{
 					if (max != _Entity.iMaxHealth)
 					{
