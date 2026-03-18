@@ -46,7 +46,7 @@ bool g_bIgnoreFakeClients = true;
 bool g_bHookMessagesDeathNotice = false;
 bool g_bBossHitsNotifyConsole = false;
 
-int g_iEntityId[MAXPLAYERS+1] = { -1, ... };
+int g_iEntityRef[MAXPLAYERS+1] = { INVALID_ENT_REFERENCE, ... };
 int g_iHudColor[3], g_iTopHitsColor[3];
 
 float g_fHudPos[2], g_fTopHitsPos[2];
@@ -244,6 +244,16 @@ public void OnClientCookiesCached(int client)
 	ReadClientCookies(client);
 }
 
+public void OnClientPutInServer(int client)
+{
+	g_iEntityRef[client] = INVALID_ENT_REFERENCE;
+}
+
+public void OnClientDisconnect(int client)
+{
+	g_iEntityRef[client] = INVALID_ENT_REFERENCE;
+}
+
 public void CookieMenu_BHud(int client, CookieMenuAction action, any info, char[] buffer, int maxlen)
 {
 	switch (action)
@@ -280,7 +290,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 				break;
 			}
 		}
-		g_iEntityId[activator] = caller;
+		g_iEntityRef[activator] = EntIndexToEntRef(caller);
 	}
 	else if (bIsBoss && !boss.dConfig.bIgnore)
 	{
@@ -309,7 +319,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 			SetClientMoney(activator, ++cash);
 		}
 		g_smBossMap.SetArray(szBossName, iHits, MAXPLAYERS + 1, true);
-		g_iEntityId[activator] = caller;
+		g_iEntityRef[activator] = EntIndexToEntRef(caller);
 	}
 	delete boss;
 }
@@ -980,6 +990,24 @@ int ResolveEntityIndex(int refOrIndex)
 	return INVALID_ENT_REFERENCE;
 }
 
+int GetClientTrackedEntity(int client)
+{
+	if (client <= 0 || client > MaxClients)
+		return INVALID_ENT_REFERENCE;
+
+	if (g_iEntityRef[client] == INVALID_ENT_REFERENCE)
+		return INVALID_ENT_REFERENCE;
+
+	int ent = ResolveEntityIndex(g_iEntityRef[client]);
+	if (ent == INVALID_ENT_REFERENCE)
+	{
+		g_iEntityRef[client] = INVALID_ENT_REFERENCE;
+		return INVALID_ENT_REFERENCE;
+	}
+
+	return ent;
+}
+
 bool IsTrackedEntityMatch(CEntity entityData, int refOrIndex)
 {
 	int storedRef = entityData.iIndex;
@@ -1400,27 +1428,29 @@ public Action Command_BHud(int client, int argc)
 
 public Action Command_CHP(int client, int argc)
 {
-	if (!IsValidEntity(g_iEntityId[client]))
+	int iEnt = GetClientTrackedEntity(client);
+	if (iEnt == INVALID_ENT_REFERENCE)
 	{
-		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
+		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityRef[client]);
 		return Plugin_Handled;
 	}
 
 	char szName[64], szType[64];
-	GetEntityName(g_iEntityId[client], szName);
-	GetEntityClassname(g_iEntityId[client], szType, sizeof(szType));
+	GetEntityName(iEnt, szName);
+	GetEntityClassname(iEnt, szType, sizeof(szType));
 
-	int health = GetEntityHealth(g_iEntityId[client]);
+	int health = GetEntityHealth(iEnt);
 
-	CPrintToChat(client, "{green}[SM]{default} %T %s %i (%s): %i HP", "Entity", client, szName, g_iEntityId[client], szType, health);
+	CPrintToChat(client, "{green}[SM]{default} %T %s %i (%s): %i HP", "Entity", client, szName, iEnt, szType, health);
 	return Plugin_Handled;
 }
 
 public Action Command_SHP(int client, int argc)
 {
-	if (!IsValidEntity(g_iEntityId[client]))
+	int iEnt = GetClientTrackedEntity(client);
+	if (iEnt == INVALID_ENT_REFERENCE)
 	{
-		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
+		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityRef[client]);
 		return Plugin_Handled;
 	}
 
@@ -1435,7 +1465,7 @@ public Action Command_SHP(int client, int argc)
 
 	int value = StringToInt(arg);
 
-	int health = EntitySetHealth(client, g_iEntityId[client], value, false);
+	int health = EntitySetHealth(client, iEnt, value, false);
 
 	CPrintToChat(client, "{green}[SM]{default} %i health subtracted. (%i HP to %i HP)", value, health, health - value);
 
@@ -1444,9 +1474,10 @@ public Action Command_SHP(int client, int argc)
 
 public Action Command_AHP(int client, int argc)
 {
-	if (!IsValidEntity(g_iEntityId[client]))
+	int iEnt = GetClientTrackedEntity(client);
+	if (iEnt == INVALID_ENT_REFERENCE)
 	{
-		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityId[client]);
+		CPrintToChat(client, "{green}[SM]{default} %T", "Invalid Entity", client, g_iEntityRef[client]);
 		return Plugin_Handled;
 	}
 
@@ -1461,7 +1492,7 @@ public Action Command_AHP(int client, int argc)
 
 	int value = StringToInt(arg);
 
-	int health = EntitySetHealth(client, g_iEntityId[client], value);
+	int health = EntitySetHealth(client, iEnt, value);
 
 	CPrintToChat(client, "{green}[SM]{default} %T", "Health added", client, value, health, health + value);
 
