@@ -645,11 +645,6 @@ public void OnEntityDestroyed(int entity)
 		return;
 
 	CEntityRemove(entity);
-
-	if (CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "SDKHook_OnEntitySpawned") == FeatureStatus_Available)
-		return;
-
-	SDKUnhook(entity, SDKHook_SpawnPost, OnEntitySpawnedPost);
 }
 
 public void PrepareBossHUD()
@@ -888,13 +883,11 @@ void Cleanup()
 
 	if (g_smTrackedRefs != null)
 	{
-		g_smTrackedRefs.Clear();
 		delete g_smTrackedRefs;
 	}
 
 	if (g_smBossMap != null)
 	{
-		g_smBossMap.Clear();
 		delete g_smBossMap;
 	}
 
@@ -922,10 +915,6 @@ int GetTrackedEntityIndex(CEntity entityData)
 	int entIndex = EntRefToEntIndex(refOrIndex);
 	if (entIndex != INVALID_ENT_REFERENCE)
 		return entIndex;
-
-	// Backward compatibility for legacy entries storing raw entity indexes.
-	if (refOrIndex > MaxClients && IsValidEntity(refOrIndex))
-		return refOrIndex;
 
 	return INVALID_ENT_REFERENCE;
 }
