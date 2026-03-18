@@ -33,6 +33,7 @@ Cookie g_cShowHealth;
 Handle g_hHudSync = INVALID_HANDLE, g_hHudTopHitsSync = INVALID_HANDLE, g_hTimerHudMsgAll = INVALID_HANDLE;
 
 StringMap g_smBossMap = null;
+StringMap g_smTrackedRefs = null;
 ArrayList g_aEntity = null;
 
 bool g_bShowHealth[MAXPLAYERS + 1] =  { true, ... };
@@ -74,7 +75,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.9",
+	version = "3.8.10",
 	url = "antiteal.com"
 };
 
@@ -204,12 +205,7 @@ public void OnLibraryRemoved(const char[] name)
 
 stock void VerifyNatives()
 {
-	bDynamicAvailable = g_bDynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
-}
-
-public void OnPluginEnd()
-{
-	Cleanup();
+	bDynamicAvailable = g_bDynamicChannels && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
 }
 
 public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
@@ -277,7 +273,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 		for (int i = 0; i < g_aEntity.Length; i++)
 		{
 			CEntity _Entity = g_aEntity.Get(i);
-			if (_Entity.iIndex == caller)
+			if (IsTrackedEntityMatch(_Entity, caller))
 			{
 				_Entity.bActive = true;
 				_Entity.fLastHitTime = GetGameTime();
@@ -334,6 +330,8 @@ public void BossHP_OnBossDead(CBoss boss)
 {
 	if (boss.dConfig != INVALID_HANDLE && boss.dConfig.bIgnore || !boss.dConfig.bShowBeaten)
 		return;
+
+	RemoveTrackedEntitiesForBoss(boss);
 
 	char szName[300];
 	BuildName(boss, szName, sizeof(szName));
@@ -629,9 +627,6 @@ public void OnEntityCreated(int entity, const char[] classname)
 
 public void OnEntitySpawnedPost(int entity)
 {
-	if (!IsValidEntity(entity))
-		return;
-
 	// 1 frame later required to get some properties
 	RequestFrame(ProcessEntitySpawned, entity);
 }
@@ -646,7 +641,10 @@ public void OnEntityDestroyed(int entity)
 	if (!g_aEntity || g_aEntity.Length == 0)
 		return;
 
-	RequestFrame(ProcessEntityDestroyed, entity);
+	if (!IsPossiblyTrackedEntity(entity))
+		return;
+
+	CEntityRemove(entity);
 
 	if (CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "SDKHook_OnEntitySpawned") == FeatureStatus_Available)
 		return;
@@ -665,9 +663,13 @@ public void PrepareBossHUD()
 		for (int i = 0; i < g_aEntity.Length; i++)
 		{
 			CEntity _Entity = g_aEntity.Get(i);
+			int iEntity = GetTrackedEntityIndex(_Entity);
+			if (iEntity == INVALID_ENT_REFERENCE)
+				continue;
+
 			if (_Entity.bActive)
 			{
-				int iHealth = GetEntityHealth(_Entity.iIndex, _Entity);
+				int iHealth = GetEntityHealth(iEntity, _Entity);
 
 				_Entity.iHealth = iHealth;
 
@@ -808,8 +810,9 @@ bool CEntityRemove(int entity)
 	for (int i = 0; i < g_aEntity.Length; i++)
 	{
 		CEntity _Entity = g_aEntity.Get(i);
-		if (_Entity.iIndex == entity)
+		if (IsTrackedEntityMatch(_Entity, entity))
 		{
+			UntrackEntityRef(_Entity.iIndex);
 			g_aEntity.Erase(i);
 			delete _Entity;
 			return true;
@@ -821,58 +824,39 @@ bool CEntityRemove(int entity)
 
 void ProcessEntitySpawned(int entity)
 {
-	if (!IsValidEntity(entity))
+	int entIndex = ResolveEntityIndex(entity);
+	if (entIndex == INVALID_ENT_REFERENCE)
+	{
 		return;
+	}
 
 	char classname[64];
-	GetEntityClassname(entity, classname, sizeof(classname));
+	GetEntityClassname(entIndex, classname, sizeof(classname));
 
 	if (!IsTrackedEntityClass(classname))
 		return;
 
-	int iHealth = GetEntityHealth(entity);
+	int iHealth = GetEntityHealth(entIndex);
 	if (iHealth <= g_iMinHealthDetect || iHealth >= g_iMaxHealthDetect)
 		return;
 
 	char szName[64];
-	GetEntityName(entity, szName);
+	GetEntityName(entIndex, szName);
 
 	if (strlen(szName) == 0)
 		FormatEx(szName, sizeof(szName), "Health");
 
+	CEntity _Entity = new CEntity();
+	_Entity.SetName(szName);
+	_Entity.iIndex = EntIndexToEntRef(entIndex);
+
 	if (strcmp(classname, "math_counter", false) == 0)
-	{
-		CEntity _Entity = new CEntity();
-		_Entity.SetName(szName);
-		_Entity.iIndex = entity;
-		_Entity.iMaxHealth = RoundFloat(GetEntPropFloat(entity, Prop_Data, "m_flMax"));
-		_Entity.iHealth = iHealth;
+		_Entity.iMaxHealth = RoundFloat(GetEntPropFloat(entIndex, Prop_Data, "m_flMax"));
 
-		g_aEntity.Push(_Entity);
-	}
-	else if (strcmp(classname, "func_physbox", false) == 0 || strcmp(classname, "func_physbox_multiplayer", false) == 0 || strcmp(classname, "func_breakable", false) == 0)
-	{
-		CEntity _Entity = new CEntity();
-		_Entity.SetName(szName);
-		_Entity.iIndex = entity;
-		_Entity.iHealth = iHealth;
+	_Entity.iHealth = iHealth;
+	g_aEntity.Push(_Entity);
 
-		g_aEntity.Push(_Entity);
-	}
-}
-
-void ProcessEntityDestroyed(int entity)
-{
-	if (!IsValidEntity(entity))
-		return;
-
-	char classname[64];
-	GetEntityClassname(entity, classname, sizeof(classname));
-
-	if (!IsTrackedEntityClass(classname))
-		return;
-
-	CEntityRemove(entity);
+	TrackEntityRef(_Entity.iIndex);
 }
 
 public void CleanupAndInit()
@@ -885,7 +869,7 @@ public void Init()
 {
 	g_aEntity = new ArrayList();
 	g_smBossMap = CreateTrie();
-
+	g_smTrackedRefs = CreateTrie();
 	g_hHudSync = CreateHudSynchronizer();
 	g_hHudTopHitsSync = CreateHudSynchronizer();
 }
@@ -900,6 +884,12 @@ void Cleanup()
 			delete _Entity;
 		}
 		delete g_aEntity;
+	}
+
+	if (g_smTrackedRefs != null)
+	{
+		g_smTrackedRefs.Clear();
+		delete g_smTrackedRefs;
 	}
 
 	if (g_smBossMap != null)
@@ -923,6 +913,101 @@ void Cleanup()
 void GetEntityName(int entity, char szName[64])
 {
 	GetEntPropString(entity, Prop_Data, "m_iName", szName, sizeof(szName));
+}
+
+int GetTrackedEntityIndex(CEntity entityData)
+{
+	int refOrIndex = entityData.iIndex;
+
+	int entIndex = EntRefToEntIndex(refOrIndex);
+	if (entIndex != INVALID_ENT_REFERENCE)
+		return entIndex;
+
+	// Backward compatibility for legacy entries storing raw entity indexes.
+	if (refOrIndex > MaxClients && IsValidEntity(refOrIndex))
+		return refOrIndex;
+
+	return INVALID_ENT_REFERENCE;
+}
+
+void TrackEntityRef(int ref)
+{
+	if (!g_smTrackedRefs || ref == INVALID_ENT_REFERENCE)
+		return;
+
+	char key[16];
+	IntToString(ref, key, sizeof(key));
+	g_smTrackedRefs.SetValue(key, 1, true);
+}
+
+void UntrackEntityRef(int ref)
+{
+	if (!g_smTrackedRefs || ref == INVALID_ENT_REFERENCE)
+		return;
+
+	char key[16];
+	IntToString(ref, key, sizeof(key));
+	g_smTrackedRefs.Remove(key);
+}
+
+bool IsTrackedRef(int ref)
+{
+	if (!g_smTrackedRefs || ref == INVALID_ENT_REFERENCE)
+		return false;
+
+	int value;
+	char key[16];
+	IntToString(ref, key, sizeof(key));
+	return g_smTrackedRefs.GetValue(key, value);
+}
+
+bool IsPossiblyTrackedEntity(int refOrIndex)
+{
+	if (!g_smTrackedRefs)
+		return true;
+
+	// If the callback gives us an entref directly.
+	if (refOrIndex < 0)
+		return IsTrackedRef(refOrIndex);
+
+	// If we can resolve to a valid index, normalize to ref and check.
+	int ent = ResolveEntityIndex(refOrIndex);
+	if (ent != INVALID_ENT_REFERENCE)
+		return IsTrackedRef(EntIndexToEntRef(ent));
+
+	// Unknown form: keep safe behavior and let CEntityRemove attempt matching.
+	return true;
+}
+
+int ResolveEntityIndex(int refOrIndex)
+{
+	int entIndex = EntRefToEntIndex(refOrIndex);
+	if (entIndex != INVALID_ENT_REFERENCE && IsValidEntity(entIndex))
+		return entIndex;
+
+	if (refOrIndex > MaxClients && IsValidEntity(refOrIndex))
+		return refOrIndex;
+
+	return INVALID_ENT_REFERENCE;
+}
+
+bool IsTrackedEntityMatch(CEntity entityData, int refOrIndex)
+{
+	int storedRef = entityData.iIndex;
+	int storedEnt = GetTrackedEntityIndex(entityData);
+
+	int targetEnt = ResolveEntityIndex(refOrIndex);
+	int targetRef = refOrIndex;
+	if (targetEnt != INVALID_ENT_REFERENCE)
+		targetRef = EntIndexToEntRef(targetEnt);
+
+	if (storedRef == refOrIndex || storedRef == targetRef)
+		return true;
+
+	if (storedEnt != INVALID_ENT_REFERENCE && (storedEnt == refOrIndex || storedEnt == targetEnt))
+		return true;
+
+	return false;
 }
 
 int GetEntityHealth(int entity, CEntity _Entity = null)
@@ -1392,6 +1477,62 @@ public Action Command_AHP(int client, int argc)
 	CPrintToChat(client, "{green}[SM]{default} %T", "Health added", client, value, health, health + value);
 
 	return Plugin_Handled;
+}
+
+int RemoveTrackedEntitiesForBoss(CBoss boss)
+{
+	if (!g_aEntity || g_aEntity.Length == 0)
+		return 0;
+
+	int primaryRaw = INVALID_ENT_REFERENCE;
+
+	CConfig config = boss.dConfig;
+	if (config.IsBreakable)
+	{
+		CBossBreakable b = view_as<CBossBreakable>(boss);
+		primaryRaw = b.iBreakableEnt;
+	}
+	else if (config.IsCounter)
+	{
+		CBossCounter b = view_as<CBossCounter>(boss);
+		primaryRaw = b.iCounterEnt;
+	}
+	else if (config.IsHPBar)
+	{
+		CBossHPBar b = view_as<CBossHPBar>(boss);
+		primaryRaw = b.iBackupEnt;
+	}
+
+	int primaryEnt = ResolveEntityIndex(primaryRaw);
+	int primaryRef = primaryRaw;
+	if (primaryEnt != INVALID_ENT_REFERENCE)
+		primaryRef = EntIndexToEntRef(primaryEnt);
+
+	if (primaryRaw == INVALID_ENT_REFERENCE && primaryEnt == INVALID_ENT_REFERENCE)
+	{
+		return 0;
+	}
+
+	int removed = 0;
+	for (int i = g_aEntity.Length - 1; i >= 0; i--)
+	{
+		CEntity _Entity = g_aEntity.Get(i);
+		bool bMatch = IsTrackedEntityMatch(_Entity, primaryRaw);
+		if (!bMatch && primaryEnt != INVALID_ENT_REFERENCE)
+			bMatch = IsTrackedEntityMatch(_Entity, primaryEnt);
+		if (!bMatch && primaryRef != INVALID_ENT_REFERENCE)
+			bMatch = IsTrackedEntityMatch(_Entity, primaryRef);
+
+		if (!bMatch)
+			continue;
+
+		UntrackEntityRef(_Entity.iIndex);
+		g_aEntity.Erase(i);
+		delete _Entity;
+		removed++;
+	}
+
+	return removed;
 }
 
 int EntitySetHealth(int client, int entity, int value, bool bAdd = true)
