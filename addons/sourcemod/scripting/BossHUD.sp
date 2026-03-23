@@ -629,7 +629,10 @@ public void BossHP_OnAllBossProcessEnd()
 
 public void OnEntityCreated(int entity, const char[] classname)
 {
-	if (CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "SDKHook_OnEntitySpawned") == FeatureStatus_Available)
+	if (!IsTrackedEntityClass(classname))
+		return;
+
+	if (GetFeatureStatus(FeatureType_Native, "SDKHook_OnEntitySpawned") == FeatureStatus_Available)
 		return;
 
 	SDKHook(entity, SDKHook_SpawnPost, OnEntitySpawnedPost);
@@ -643,6 +646,9 @@ public void OnEntitySpawnedPost(int entity)
 
 public void OnEntitySpawned(int entity, const char[] classname)
 {
+	if (!IsTrackedEntityClass(classname))
+		return;
+
 	RequestFrame(ProcessEntitySpawned, entity);
 }
 
@@ -829,15 +835,6 @@ bool CEntityRemove(int entity)
 
 void ProcessEntitySpawned(int entity)
 {
-	if (!IsValidEntity(entity))
-		return;
-
-	char classname[64];
-	GetEntityClassname(entity, classname, sizeof(classname));
-
-	if (!IsTrackedEntityClass(classname))
-		return;
-
 	int entIndex = EntRefToEntIndex(entity);
 	if (entIndex == INVALID_ENT_REFERENCE)
 		return;
@@ -855,6 +852,9 @@ void ProcessEntitySpawned(int entity)
 	CEntity _Entity = new CEntity();
 	_Entity.SetName(szName);
 	_Entity.iIndex = EntIndexToEntRef(entIndex);
+	
+	char classname[64];
+	GetEntityClassname(entIndex, classname, sizeof(classname));
 
 	if (strcmp(classname, "math_counter", false) == 0)
 		_Entity.iMaxHealth = RoundFloat(GetEntPropFloat(entIndex, Prop_Data, "m_flMax"));
