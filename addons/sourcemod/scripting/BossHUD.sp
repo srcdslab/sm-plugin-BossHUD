@@ -290,7 +290,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 				break;
 			}
 		}
-		g_iEntityRef[activator] = EntIndexToEntRef(caller);
+		g_iEntityRef[activator] = EntIndexToEntRef(EntRefToEntIndex(caller));
 	}
 	else if (bIsBoss && !boss.dConfig.bIgnore)
 	{
@@ -319,7 +319,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 			SetClientMoney(activator, ++cash);
 		}
 		g_smBossMap.SetArray(szBossName, iHits, MAXPLAYERS + 1, true);
-		g_iEntityRef[activator] = EntIndexToEntRef(caller);
+		g_iEntityRef[activator] = EntIndexToEntRef(EntRefToEntIndex(caller));
 	}
 	delete boss;
 }
@@ -829,16 +829,17 @@ bool CEntityRemove(int entity)
 
 void ProcessEntitySpawned(int entity)
 {
-	int entIndex = ResolveEntityIndex(entity);
-	if (entIndex == INVALID_ENT_REFERENCE)
-	{
+	if (!IsValidEntity(entity))
 		return;
-	}
 
 	char classname[64];
-	GetEntityClassname(entIndex, classname, sizeof(classname));
+	GetEntityClassname(entity, classname, sizeof(classname));
 
 	if (!IsTrackedEntityClass(classname))
+		return;
+
+	int entIndex = EntRefToEntIndex(entity);
+	if (entIndex == INVALID_ENT_REFERENCE)
 		return;
 
 	int iHealth = GetEntityHealth(entIndex);
@@ -848,7 +849,7 @@ void ProcessEntitySpawned(int entity)
 	char szName[64];
 	GetEntityName(entIndex, szName);
 
-	if (strlen(szName) == 0)
+	if (szName[0] == '\0')
 		FormatEx(szName, sizeof(szName), "Health");
 
 	CEntity _Entity = new CEntity();
@@ -980,12 +981,17 @@ bool IsPossiblyTrackedEntity(int refOrIndex)
 
 int ResolveEntityIndex(int refOrIndex)
 {
+	// Early return for client index
+	if (refOrIndex > 0 && refOrIndex <= MaxClients)
+		return refOrIndex;
+
+	// Early return for valid entity index
+	if (refOrIndex > MaxClients && IsValidEntity(refOrIndex))
+		return refOrIndex;
+
 	int entIndex = EntRefToEntIndex(refOrIndex);
 	if (entIndex != INVALID_ENT_REFERENCE && IsValidEntity(entIndex))
 		return entIndex;
-
-	if (refOrIndex > MaxClients && IsValidEntity(refOrIndex))
-		return refOrIndex;
 
 	return INVALID_ENT_REFERENCE;
 }
@@ -1004,19 +1010,19 @@ int GetClientTrackedEntity(int client)
 bool IsTrackedEntityMatch(CEntity entityData, int refOrIndex)
 {
 	int storedRef = entityData.iIndex;
+	if (storedRef == refOrIndex)
+		return true;
+
 	int storedEnt = GetTrackedEntityIndex(entityData);
+	if (storedEnt != INVALID_ENT_REFERENCE && storedEnt == refOrIndex)
+		return true;
 
 	int targetEnt = ResolveEntityIndex(refOrIndex);
-	int targetRef = refOrIndex;
-	if (targetEnt != INVALID_ENT_REFERENCE)
-		targetRef = EntIndexToEntRef(targetEnt);
-
-	if (storedRef == refOrIndex || storedRef == targetRef)
-		return true;
-
-	if (storedEnt != INVALID_ENT_REFERENCE && (storedEnt == refOrIndex || storedEnt == targetEnt))
-		return true;
-
+	if (targetEnt != INVALID_ENT_REFERENCE) {
+		int targetRef = EntIndexToEntRef(targetEnt);
+		if (storedRef == targetRef || storedEnt == targetEnt)
+			return true;
+	}
 	return false;
 }
 
