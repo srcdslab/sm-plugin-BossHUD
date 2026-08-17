@@ -6,8 +6,8 @@ This repository contains the **BossHUD** plugin for SourceMod, a scripting platf
 ## Technical Environment
 - **Language**: SourcePawn (`.sp` files compile to `.smx` bytecode)
 - **Platform**: SourceMod 1.12+ (minimum compatible version)
-- **Compiler**: SourcePawn compiler (spcomp) via SourceKnight build system
-- **Build Tools**: SourceKnight (Python-based build system with dependency management)
+- **Compiler**: SourcePawn compiler (spcomp) via native GitHub Actions workflow
+- **Build Tools**: GitHub Actions (rumblefrog/setup-sp for the compiler, plain git clone for dependencies)
 - **Target Games**: Source engine games
 
 ## Project Structure
@@ -21,8 +21,7 @@ addons/sourcemod/
 └── translations/
     └── BossHUD.phrases.txt     # Multi-language support (EN/FR/ZH)
 
-.github/workflows/ci.yml        # GitHub Actions CI/CD
-sourceknight.yaml              # Build configuration and dependencies
+.github/workflows/ci.yml        # GitHub Actions CI/CD (build, tag, release)
 ```
 
 ## Key Files and Their Purpose
@@ -40,7 +39,7 @@ sourceknight.yaml              # Build configuration and dependencies
 - **`BossHUD.inc`**: Native function declarations for other plugins to interact with BossHUD
 - **`CEntity.inc`**: Methodmap class for entity management using the Basic library
 
-### Dependencies (defined in `sourceknight.yaml`)
+### Dependencies (cloned by `.github/workflows/ci.yml`)
 - **sourcemod**: Core SourceMod framework
 - **multicolors**: Colored chat message support
 - **bosshp**: Boss health tracking functionality  
@@ -81,8 +80,8 @@ native int BossHUD_GetBossHealth(int bossEnt);  // Natives with plugin prefix
 
 ### CI/CD Pipeline
 The GitHub Actions workflow (`.github/workflows/ci.yml`):
-1. Uses `maxime1907/action-sourceknight@v1` for building
-2. Creates distribution packages
+1. Installs the SourcePawn compiler via `rumblefrog/setup-sp` and clones each dependency's repo directly to gather its `include/` files
+2. Compiles the plugin with `spcomp` and creates a distribution package
 3. Automatically tags and releases on main/master branch
 4. Uploads build artifacts
 
@@ -187,7 +186,7 @@ sm_bhud_frame_to_skip "frames"      // Performance optimization
 ## Troubleshooting Common Issues
 
 ### Build Failures
-- Check `sourceknight.yaml` for correct dependency versions
+- Check `.github/workflows/ci.yml` for correct dependency repo URLs and the SourcePawn compiler version
 - Ensure all include files are available
 - Verify SourceMod version compatibility
 
@@ -210,10 +209,11 @@ sm_bhud_frame_to_skip "frames"      // Performance optimization
 - Test thoroughly before merging to main branch
 
 ## Dependencies and External Libraries
-All dependencies are automatically managed by SourceKnight. Key external dependencies:
+All dependencies are cloned directly from their source repos by `.github/workflows/ci.yml`. Key external dependencies:
 - **MultiColors**: For colored chat messages
 - **BossHP**: Core boss health tracking
+- **loghelper**: Logging utilities
 - **Basic**: Data structure utilities
 - **DynamicChannels**: Advanced HUD channel management (optional)
 
-When modifying dependencies, update `sourceknight.yaml` and test compatibility thoroughly.
+When modifying dependencies, update the `Install dependencies` step in `.github/workflows/ci.yml` and test compatibility thoroughly.
