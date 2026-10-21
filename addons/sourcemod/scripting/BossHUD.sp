@@ -30,7 +30,7 @@ ConVar g_cvBossHitsNotifyConsole;
 
 Cookie g_cShowHealth;
 
-Handle g_hHudSync = INVALID_HANDLE, g_hHudTopHitsSync = INVALID_HANDLE, g_hTimerHudMsgAll = INVALID_HANDLE;
+Handle g_hHudSync = null, g_hHudTopHitsSync = null, g_hTimerHudMsgAll = null;
 
 StringMap g_smBossMap = null;
 StringMap g_smTrackedRefs = null;
@@ -75,7 +75,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.10",
+	version = "3.8.11",
 	url = "antiteal.com"
 };
 
@@ -103,7 +103,7 @@ public void OnPluginStart()
 
 	g_cShowHealth = new Cookie("bhud_showhealth", "Toggle boss health display", CookieAccess_Private);
 
-	SetCookieMenuItem(CookieMenu_BHud, INVALID_HANDLE, "BossHUD Settings");
+	SetCookieMenuItem(CookieMenu_BHud, 0, "BossHUD Settings");
 
 	RegConsoleCmd("sm_bhud", Command_BHud, "Toggle boss health display");
 	RegConsoleCmd("sm_bosshud", Command_BHud, "Toggle boss health display");
@@ -208,7 +208,7 @@ stock void VerifyNatives()
 	bDynamicAvailable = g_bDynamicChannels && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
 }
 
-public void Event_OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
+public void Event_OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	CleanupAndInit();
 }
@@ -326,7 +326,7 @@ public void Hook_OnDamage(const char[] output, int caller, int activator, float 
 
 public void BossHP_OnBossInitialized(CBoss boss)
 {
-	if (boss.dConfig != INVALID_HANDLE && boss.dConfig.bIgnore)
+	if (boss.dConfig != null && boss.dConfig.bIgnore)
 		return;
 
 	char szName[300];
@@ -338,7 +338,7 @@ public void BossHP_OnBossInitialized(CBoss boss)
 
 public void BossHP_OnBossDead(CBoss boss)
 {
-	if (boss.dConfig != INVALID_HANDLE && boss.dConfig.bIgnore || !boss.dConfig.bShowBeaten)
+	if (boss.dConfig != null && boss.dConfig.bIgnore || !boss.dConfig.bShowBeaten)
 		return;
 
 	RemoveTrackedEntitiesForBoss(boss);
@@ -740,7 +740,7 @@ public void OnGameFrame()
 		if (!g_bShowHealth[client])
 			continue;
 
-		SendHudMsg(client, g_sHUDTextSave, g_iDisplayType, INVALID_HANDLE, g_iHudColor, g_fHudPos, 3.0, 255);
+		SendHudMsg(client, g_sHUDTextSave, g_iDisplayType, null, g_iHudColor, g_fHudPos, 3.0, 255);
 	}
 
 	iFrame = 0;
@@ -874,8 +874,8 @@ public void CleanupAndInit()
 public void Init()
 {
 	g_aEntity = new ArrayList();
-	g_smBossMap = CreateTrie();
-	g_smTrackedRefs = CreateTrie();
+	g_smBossMap = new StringMap();
+	g_smTrackedRefs = new StringMap();
 	g_hHudSync = CreateHudSynchronizer();
 	g_hHudTopHitsSync = CreateHudSynchronizer();
 }
@@ -905,10 +905,9 @@ void Cleanup()
 	delete g_hHudSync;
 	delete g_hHudTopHitsSync;
 
-	if (g_hTimerHudMsgAll != INVALID_HANDLE)
+	if (g_hTimerHudMsgAll != null)
 	{
-		KillTimer(g_hTimerHudMsgAll);
-		g_hTimerHudMsgAll = INVALID_HANDLE;
+		delete g_hTimerHudMsgAll;
 	}
 
 	g_bHookMessagesDeathNotice = false;
@@ -1089,18 +1088,18 @@ Action Timer_SendHudMsgAll(Handle timer, any data)
 	int iTransparency = pack.ReadCell();
 	int client = pack.ReadCell();
 
-	CloseHandle(pack);
+	delete pack;
 
 	SendHudMsgAll(szMessage, type, hHudSync, iColors, fPosition, fDuration, iTransparency, false, false, client);
 
-	KillTimer(timer);
+	delete timer;
 	return Plugin_Stop;
 }
 
 void SendHudMsgAll(
 	char[] szMessage,
 	DisplayType type = DISPLAY_CENTER,
-	Handle hHudSync = INVALID_HANDLE,
+	Handle hHudSync = null,
 	int iColors[3] = g_iHudColor,
 	float fPosition[2] = g_fHudPos,
 	float fDuration = 3.0,
@@ -1160,7 +1159,7 @@ void SendHudMsg(
 	int client,
 	char[] szMessage,
 	DisplayType type = DISPLAY_CENTER,
-	Handle hHudSync = INVALID_HANDLE,
+	Handle hHudSync = null,
 	int iColors[3] = g_iHudColor,
 	float fPosition[2] = g_fHudPos,
 	float fDuration = 3.0,
@@ -1169,10 +1168,10 @@ void SendHudMsg(
 {
 	if (type == DISPLAY_GAME)
 	{
-		if (hHudSync == INVALID_HANDLE && g_hHudSync != INVALID_HANDLE)
+		if (hHudSync == null && g_hHudSync != null)
 			hHudSync = g_hHudSync;
 
-		if (hHudSync != INVALID_HANDLE)
+		if (hHudSync != null)
 		{
 			SetHudTextParams(fPosition[0], fPosition[1], fDuration, iColors[0], iColors[1], iColors[2], iTransparency, 0, 0.0, 0.0, 0.0);
 			char szMessageFinale[512];
