@@ -75,7 +75,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.11",
+	version = "3.8.12",
 	url = "antiteal.com"
 };
 
@@ -808,7 +808,7 @@ public void ReadClientCookies(int client)
 public void ToggleBhud(int client)
 {
 	g_bShowHealth[client] = !g_bShowHealth[client];
-	CPrintToChat(client, "{green}[SM]{default} %T %s", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled");
+	CPrintToChat(client, "{green}[SM]{default} %T %T", "Show health has been", client, g_bShowHealth[client] ? "Enabled" : "Disabled", client);
 
 	g_bShowHealth[client] ? g_cShowHealth.Set(client, "1") : g_cShowHealth.Set(client, "0");
 }
@@ -1465,7 +1465,7 @@ public Action Command_SHP(int client, int argc)
 
 	int health = EntitySetHealth(client, iEnt, value, false);
 
-	CPrintToChat(client, "{green}[SM]{default} %i health subtracted. (%i HP to %i HP)", value, health, health - value);
+	CPrintToChat(client, "{green}[SM]{default} %T", "Health subtracted", client, value, health, health - value);
 
 	return Plugin_Handled;
 }
