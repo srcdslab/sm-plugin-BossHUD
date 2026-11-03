@@ -181,6 +181,7 @@
 		"en"		"Disconnected (#{1})"
 		"fr"		"Déconnecté (#{1})"
 		"chi"		"已断开连接（#{1}）"
+		"zho"		"已斷開連線（#{1}）"
 		"ru"		"Отключился (#{1})"
 		"es"		"Desconectado (#{1})"
 		"de"		"Getrennt (#{1})"
