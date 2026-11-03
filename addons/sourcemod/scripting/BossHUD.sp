@@ -1374,7 +1374,7 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 	CPrintToChat(client, "{yellow}%s", szMessage);
 
 	if (g_bBossHitsNotifyConsole)
-		PrintToConsole(client, "%s", szConsoleMsg);
+		PrintToConsole(client, szConsoleMsg);
 }
 
 public int GetClientMoney(int client)
