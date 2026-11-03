@@ -75,7 +75,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.12",
+	version = "3.8.13",
 	url = "antiteal.com"
 };
 
@@ -1335,12 +1335,9 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 	if (g_bTopHitsTitle)
 	{
 		char sDamageUpper[32], sHitsUpper[32];
-		FormatEx(sDamageUpper, sizeof(sDamageUpper), "%T", "Damage", client);
-		FormatEx(sHitsUpper, sizeof(sHitsUpper), "%T", "Hits", client);
-
-		StringToUpperCase(sTitle);
-		StringToUpperCase(sDamageUpper);
-		StringToUpperCase(sHitsUpper);
+		FormatEx(sTitle, sizeof(sTitle), "%T", "Top Boss Title", client);
+		FormatEx(sDamageUpper, sizeof(sDamageUpper), "%T", "Damage Title", client);
+		FormatEx(sHitsUpper, sizeof(sHitsUpper), "%T", "Hits Title", client);
 
 		FormatEx(szMessage, len, "%s %s [%s]\n", sTitle, IsBreakable ? sDamageUpper : sHitsUpper, szName);
 		if (g_bBossHitsNotifyConsole)
@@ -1360,7 +1357,7 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 		int playerIndex = playerIndices[i];
 		char clientName[64];
 		if (!IsValidClient(playerIndex) || !GetClientName(playerIndex, clientName, sizeof(clientName)))
-			FormatEx(clientName, sizeof(clientName), "Disconnected (#%d)", playerIndex);
+			FormatEx(clientName, sizeof(clientName), "%T", "Disconnected Player", client, playerIndex);
 
 		char tmp[128];
 		FormatEx(tmp, sizeof(tmp), "%i. %s: %i %s\n", i + 1, clientName, playerHits[i], IsBreakable ? sDamage : sHits);
