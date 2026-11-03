@@ -75,7 +75,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.13",
+	version = "3.8.14",
 	url = "antiteal.com"
 };
 
@@ -1374,7 +1374,7 @@ public void BuildMessage(CBoss boss, bool IsBreakable, int[] TopHits, int tophit
 	CPrintToChat(client, "{yellow}%s", szMessage);
 
 	if (g_bBossHitsNotifyConsole)
-		PrintToConsole(client, szConsoleMsg);
+		PrintToConsole(client, "%s", szConsoleMsg);
 }
 
 public int GetClientMoney(int client)
