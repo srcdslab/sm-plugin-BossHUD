@@ -75,7 +75,7 @@ public Plugin myinfo = {
 	name = "BossHUD",
 	author = "AntiTeal, Cloud Strife, maxime1907",
 	description = "Show the health of bosses and breakables",
-	version = "3.8.14",
+	version = "3.8.15",
 	url = "antiteal.com"
 };
 
@@ -1088,11 +1088,13 @@ Action Timer_SendHudMsgAll(Handle timer, any data)
 	int iTransparency = pack.ReadCell();
 	int client = pack.ReadCell();
 
-	delete pack;
-
 	SendHudMsgAll(szMessage, type, hHudSync, iColors, fPosition, fDuration, iTransparency, false, false, client);
 
-	delete timer;
+	// Returning Plugin_Stop ends the timer and frees the pack (TIMER_DATA_HNDL_CLOSE):
+	// deleting either handle here would free it twice.
+	if (g_hTimerHudMsgAll == timer)
+		g_hTimerHudMsgAll = null;
+
 	return Plugin_Stop;
 }
 
