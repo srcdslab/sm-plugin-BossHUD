@@ -10,6 +10,11 @@
 		"es"		"Top jefe"
 		"de"		"Top-Boss"
 		"pt"		"Top chefe"
+		"pl"		"Najlepszy boss"
+		"tr"		"En iyi boss"
+		"it"		"Top boss"
+		"ua"		"Топ бос"
+		"cze"		"Top boss"
 	}
 
 	"Damage"
@@ -22,6 +27,11 @@
 		"es"		"daño"
 		"de"		"Schaden"
 		"pt"		"dano"
+		"pl"		"obrażenia"
+		"tr"		"hasar"
+		"it"		"danni"
+		"ua"		"шкода"
+		"cze"		"poškození"
 	}
 
 	"Hits"
@@ -34,6 +44,11 @@
 		"es"		"impactos"
 		"de"		"Treffer"
 		"pt"		"acertos"
+		"pl"		"trafienia"
+		"tr"		"vuruş"
+		"it"		"colpi"
+		"ua"		"влучання"
+		"cze"		"zásahy"
 	}
 
 	"Top Boss Title"
@@ -46,6 +61,11 @@
 		"es"		"TOP JEFE"
 		"de"		"TOP-BOSS"
 		"pt"		"TOP CHEFE"
+		"pl"		"NAJLEPSZY BOSS"
+		"tr"		"EN İYİ BOSS"
+		"it"		"TOP BOSS"
+		"ua"		"ТОП БОС"
+		"cze"		"TOP BOSS"
 	}
 
 	"Damage Title"
@@ -58,6 +78,11 @@
 		"es"		"DAÑO"
 		"de"		"SCHADEN"
 		"pt"		"DANO"
+		"pl"		"OBRAŻENIA"
+		"tr"		"HASAR"
+		"it"		"DANNI"
+		"ua"		"ШКОДА"
+		"cze"		"POŠKOZENÍ"
 	}
 
 	"Hits Title"
@@ -70,6 +95,11 @@
 		"es"		"IMPACTOS"
 		"de"		"TREFFER"
 		"pt"		"ACERTOS"
+		"pl"		"TRAFIENIA"
+		"tr"		"VURUŞ"
+		"it"		"COLPI"
+		"ua"		"ВЛУЧАННЯ"
+		"cze"		"ZÁSAHY"
 	}
 
 	"Entity"
@@ -82,6 +112,11 @@
 		"es"		"Entidad"
 		"de"		"Entity"
 		"pt"		"Entidade"
+		"pl"		"Encja"
+		"tr"		"Varlık"
+		"it"		"Entità"
+		"ua"		"Сутність"
+		"cze"		"Entita"
 	}
 
 	"Usage"
@@ -94,6 +129,11 @@
 		"es"		"Uso"
 		"de"		"Verwendung"
 		"pt"		"Uso"
+		"pl"		"Użycie"
+		"tr"		"Kullanım"
+		"it"		"Uso"
+		"ua"		"Використання"
+		"cze"		"Použití"
 	}
 
 	"Enabled"
@@ -106,6 +146,11 @@
 		"es"		"Activado"
 		"de"		"Aktiviert"
 		"pt"		"Ativado"
+		"pl"		"Włączone"
+		"tr"		"Etkin"
+		"it"		"Attivato"
+		"ua"		"Увімкнено"
+		"cze"		"Zapnuto"
 	}
 
 	"Disabled"
@@ -118,6 +163,11 @@
 		"es"		"Desactivado"
 		"de"		"Deaktiviert"
 		"pt"		"Desativado"
+		"pl"		"Wyłączone"
+		"tr"		"Devre dışı"
+		"it"		"Disattivato"
+		"ua"		"Вимкнено"
+		"cze"		"Vypnuto"
 	}
 
 	"Show health has been"
@@ -130,6 +180,11 @@
 		"es"		"Mostrar vida del jefe:"
 		"de"		"Boss-HP-Anzeige:"
 		"pt"		"Mostrar vida do chefe:"
+		"pl"		"Wyświetlanie zdrowia bossa:"
+		"tr"		"Boss canı gösterimi:"
+		"it"		"Visualizzazione salute del boss:"
+		"ua"		"Показ здоров'я боса:"
+		"cze"		"Zobrazení zdraví bosse:"
 	}
 
 	"Invalid Entity"
@@ -144,6 +199,11 @@
 		"es"		"La entidad actual no es válida (ID: {1})"
 		"de"		"Aktuelle Entity ist ungültig (ID: {1})"
 		"pt"		"A entidade atual é inválida (ID: {1})"
+		"pl"		"Obecna encja jest nieprawidłowa (ID: {1})"
+		"tr"		"Mevcut varlık geçersiz (ID: {1})"
+		"it"		"L'entità attuale non è valida (ID: {1})"
+		"ua"		"Поточна сутність недійсна (ID: {1})"
+		"cze"		"Aktuální entita je neplatná (ID: {1})"
 	}
 
 	"Health subtracted"
@@ -158,6 +218,11 @@
 		"es"		"{1} de vida restada ({2} HP a {3} HP)"
 		"de"		"{1} HP abgezogen ({2} HP auf {3} HP)"
 		"pt"		"{1} de vida subtraída ({2} HP para {3} HP)"
+		"pl"		"Odjęto {1} zdrowia ({2} HP do {3} HP)"
+		"tr"		"{1} can düşüldü ({2} HP'den {3} HP'ye)"
+		"it"		"{1} salute sottratta ({2} HP a {3} HP)"
+		"ua"		"Віднято {1} здоров'я ({2} HP до {3} HP)"
+		"cze"		"Odečteno {1} zdraví ({2} HP na {3} HP)"
 	}
 
 	"Health added"
@@ -172,6 +237,11 @@
 		"es"		"{1} de vida añadida ({2} HP a {3} HP)"
 		"de"		"{1} HP hinzugefügt ({2} HP auf {3} HP)"
 		"pt"		"{1} de vida adicionada ({2} HP para {3} HP)"
+		"pl"		"Dodano {1} zdrowia ({2} HP do {3} HP)"
+		"tr"		"{1} can eklendi ({2} HP'den {3} HP'ye)"
+		"it"		"{1} salute aggiunta ({2} HP a {3} HP)"
+		"ua"		"Додано {1} здоров'я ({2} HP до {3} HP)"
+		"cze"		"Přidáno {1} zdraví ({2} HP na {3} HP)"
 	}
 
 	"Disconnected Player"
@@ -186,5 +256,10 @@
 		"es"		"Desconectado (#{1})"
 		"de"		"Getrennt (#{1})"
 		"pt"		"Desconectado (#{1})"
+		"pl"		"Rozłączony (#{1})"
+		"tr"		"Bağlantısı kesildi (#{1})"
+		"it"		"Disconnesso (#{1})"
+		"ua"		"Відключений (#{1})"
+		"cze"		"Odpojen (#{1})"
 	}
 }
